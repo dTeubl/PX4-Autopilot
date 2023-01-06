@@ -1,0 +1,5 @@
+menuconfig MODULES_IDENT_SIGNALS
+	bool "ident_signals"
+	default n
+	---help---
+		Enable support for Ident Signals modeles, which support the injection of highly customizable identeficiation signal.
