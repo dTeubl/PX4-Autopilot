@@ -42,6 +42,4 @@ px4_add_module(
 	DEPENDS
 	)
 
-px4_add_unit_gtest( SRC ident_signal_test.cpp 
-    LINKLIBS modules__ident_signals
-    )
+px4_add_unit_gtest(SRC ident_signal_test.cpp LINKLIBS modules__ident_signals)

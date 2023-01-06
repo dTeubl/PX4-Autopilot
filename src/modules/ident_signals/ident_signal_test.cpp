@@ -31,18 +31,12 @@
  *
  ****************************************************************************/
 
-#define MODULE_name "examples__ident_signals"
-
 #include <gtest/gtest.h>
-#include <mathlib/math/Functions.hpp>
 
-#include <ident_signal.h>
-#include <matrix/matrix/math.hpp>
-
-using namespace matrix;
+#include "ident_signal.h"
 
 TEST(IdentSignal, DefaultAappstate) {
     IdentSignals signal{};
-    EXPECT_FALSE(signal.appState);
+    EXPECT_FALSE(signal.appState.isRunning());
 }
 
