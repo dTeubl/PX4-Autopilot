@@ -207,9 +207,45 @@ float VtolType::update_and_get_backtransition_pitch_sp()
 	return math::constrain(pitch_sp_new, 0.f, pitch_lim);
 }
 
+bool VtolType::isFrontTransitionCompleted()
+{
+	bool ret = isFrontTransitionCompletedBase();
+
+	return ret || can_transition_on_ground();
+}
+
+bool VtolType::isFrontTransitionCompletedBase()
+{
+	// continue the transition to fw mode while monitoring airspeed for a final switch to fw mode
+	const bool airspeed_triggers_transition = PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)
+			&& !_param_fw_arsp_mode.get();
+	const bool minimum_trans_time_elapsed = _time_since_trans_start > getMinimumFrontTransitionTime();
+	const bool openloop_trans_time_elapsed = _time_since_trans_start > getOpenLoopFrontTransitionTime();
+
+	bool transition_to_fw = false;
+
+	if (airspeed_triggers_transition) {
+		transition_to_fw = minimum_trans_time_elapsed
+				   && _airspeed_validated->calibrated_airspeed_m_s >= _param_vt_arsp_trans.get();
+
+	} else {
+		transition_to_fw = openloop_trans_time_elapsed;
+	}
+
+	return transition_to_fw;
+
+}
+
 bool VtolType::can_transition_on_ground()
 {
 	return !_v_control_mode->flag_armed || _land_detected->landed;
+}
+
+void VtolType::resetTransitionStates()
+{
+	_transition_start_timestamp = hrt_absolute_time();
+	_time_since_trans_start = 0.f;
+	_local_position_z_start_of_transition = _local_pos->z;
 }
 
 bool VtolType::isQuadchuteEnabled()
@@ -228,9 +264,12 @@ bool VtolType::isQuadchuteEnabled()
 
 	}
 
+	const bool above_quadchute_altitude_limit = _param_quadchute_max_height.get() > 0
+			&& dist_to_ground > (float)_param_quadchute_max_height.get();
+
 	return _v_control_mode->flag_armed &&
-	       !_land_detected->landed && _param_quadchute_max_height.get() > 0 &&
-	       dist_to_ground < (float)_param_quadchute_max_height.get();
+	       !_land_detected->landed && !above_quadchute_altitude_limit;
+
 }
 
 bool VtolType::isMinAltBreached()
@@ -247,37 +286,50 @@ bool VtolType::isMinAltBreached()
 	return false;
 }
 
-bool VtolType::largeAltitudeLoss()
+bool VtolType::isUncommandedDescent()
 {
-	// adaptive quadchute
-	if (_param_vt_fw_alt_err.get() > FLT_EPSILON && _v_control_mode->flag_control_altitude_enabled && _tecs_running) {
+	if (_param_vt_qc_hr_error_i.get() > FLT_EPSILON && _v_control_mode->flag_control_altitude_enabled
+	    && hrt_elapsed_time(&_tecs_status->timestamp) < 1_s) {
 
-		// are we dropping while requesting significant ascend?
-		if (((_tecs_status->altitude_sp - _tecs_status->altitude_filtered) > _param_vt_fw_alt_err.get()) &&
-		    (_ra_hrate < -1.0f) &&
-		    (_ra_hrate_sp > 1.0f)) {
-			return true;
+		// TODO if TECS publishes local_position_setpoint dependency on tecs_status can be dropped here
+
+		if (_tecs_status->height_rate < -FLT_EPSILON && _tecs_status->height_rate_setpoint > FLT_EPSILON) {
+			// vehicle is currently in uncommended descend, start integrating error
+
+			const hrt_abstime now = hrt_absolute_time();
+			float dt = static_cast<float>(now - _last_loop_quadchute_timestamp) / 1e6f;
+			dt = math::constrain(dt, 0.0001f, 0.1f);
+			_last_loop_quadchute_timestamp = now;
+
+			_height_rate_error_integral += (_tecs_status->height_rate_setpoint - _tecs_status->height_rate) * dt;
+
+		} else {
+			_height_rate_error_integral = 0.f; // reset
 		}
+
+		return (_height_rate_error_integral > _param_vt_qc_hr_error_i.get());
 	}
 
 	return false;
 }
 
-bool VtolType::largeAltitudeError()
+bool VtolType::isFrontTransitionAltitudeLoss()
 {
-	// adaptive quadchute
-	if (_param_vt_fw_alt_err.get() > FLT_EPSILON && _v_control_mode->flag_control_altitude_enabled && !_tecs_running) {
+	bool result = false;
 
+	if (_param_vt_qc_t_alt_loss.get() > FLT_EPSILON && _common_vtol_mode == mode::TRANSITION_TO_FW && _local_pos->z_valid) {
 
-		const bool height_error = _local_pos->z_valid && ((-_local_pos_sp->z - -_local_pos->z) > _param_vt_fw_alt_err.get());
-		const bool height_rate_error = _local_pos->v_z_valid && (_local_pos->vz > 1.0f) && (_local_pos->z_deriv > 1.0f);
+		if (_local_pos->z <= FLT_EPSILON) {
+			// vehilce is above home
+			result = _local_pos->z - _local_position_z_start_of_transition > _param_vt_qc_t_alt_loss.get();
 
-		if (height_error && height_rate_error) {
-			return true;
+		} else {
+			// vehilce is below home
+			result = _local_position_z_start_of_transition - _local_pos->z > _param_vt_qc_t_alt_loss.get();
 		}
 	}
 
-	return false;
+	return result;
 }
 
 bool VtolType::isPitchExceeded()
@@ -328,12 +380,12 @@ QuadchuteReason VtolType::getQuadchuteReason()
 		return QuadchuteReason::MinimumAltBreached;
 	}
 
-	if (largeAltitudeLoss()) {
-		return QuadchuteReason::LossOfAlt;
+	if (isUncommandedDescent()) {
+		return QuadchuteReason::UncommandedDescent;
 	}
 
-	if (largeAltitudeError()) {
-		return QuadchuteReason::LargeAltError;
+	if (isFrontTransitionAltitudeLoss()) {
+		return QuadchuteReason::TransitionAltitudeLoss;
 	}
 
 	if (isPitchExceeded()) {
@@ -351,20 +403,6 @@ QuadchuteReason VtolType::getQuadchuteReason()
 	return QuadchuteReason::None;
 }
 
-void VtolType::filterTecsHeightRates()
-{
-	if (_tecs_running) {
-		// 1 second rolling average
-		_ra_hrate = (49 * _ra_hrate + _tecs_status->height_rate) / 50;
-		_ra_hrate_sp = (49 * _ra_hrate_sp + _tecs_status->height_rate_setpoint) / 50;
-
-	} else {
-		// reset the filtered height rate and heigh rate setpoint if TECS is not running
-		_ra_hrate = 0.0f;
-		_ra_hrate_sp = 0.0f;
-	}
-}
-
 void VtolType::handleSpecialExternalCommandQuadchute()
 {
 	if (_attc->get_transition_command() == vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC && _attc->get_immediate_transition()
@@ -380,8 +418,6 @@ void VtolType::handleSpecialExternalCommandQuadchute()
 
 void VtolType::check_quadchute_condition()
 {
-
-	filterTecsHeightRates();
 	handleSpecialExternalCommandQuadchute();
 
 	if (isQuadchuteEnabled()) {
@@ -468,7 +504,7 @@ float VtolType::pusher_assist()
 	}
 
 	// Do not engage pusher assist during a failsafe event (could be a problem with the fixed wing drive)
-	if (_attc->get_vtol_vehicle_status()->vtol_transition_failsafe) {
+	if (_attc->get_vtol_vehicle_status()->fixed_wing_system_failure) {
 		return 0.0f;
 	}
 

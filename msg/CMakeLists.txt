@@ -126,6 +126,7 @@ set(msg_files
 	Mission.msg
 	MissionResult.msg
 	MountOrientation.msg
+	ModeCompleted.msg
 	NavigatorMissionItem.msg
 	NpfgStatus.msg
 	ObstacleDistance.msg
@@ -217,7 +218,6 @@ set(msg_files
 	VehicleTrajectoryBezier.msg
 	VehicleTrajectoryWaypoint.msg
 	VtolVehicleStatus.msg
-	WheelEncoders.msg
 	Wind.msg
 	YawEstimatorStatus.msg
 )

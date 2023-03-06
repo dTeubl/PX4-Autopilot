@@ -215,7 +215,7 @@ bool Ekf::fuseMag(const Vector3f &mag, estimator_aid_source3d_s &aid_src_mag, bo
 
 	if (fused[0] && fused[1] && fused[2]) {
 		aid_src_mag.fused = true;
-		aid_src_mag.time_last_fuse = _imu_sample_delayed.time_us;
+		aid_src_mag.time_last_fuse = _time_delayed_us;
 		return true;
 	}
 
@@ -313,9 +313,9 @@ bool Ekf::fuseYaw(const float innovation, const float variance, estimator_aid_so
 
 	if (measurementUpdate(Kfusion, aid_src_status.innovation_variance, aid_src_status.innovation)) {
 
-		_time_last_heading_fuse = _imu_sample_delayed.time_us;
+		_time_last_heading_fuse = _time_delayed_us;
 
-		aid_src_status.time_last_fuse = _imu_sample_delayed.time_us;
+		aid_src_status.time_last_fuse = _time_delayed_us;
 		aid_src_status.fused = true;
 
 		_fault_status.flags.bad_hdg = false;
@@ -436,7 +436,7 @@ float Ekf::calculate_synthetic_mag_z_measurement(const Vector3f &mag_meas, const
 	// of the earth magnetic field vector at the current location
 	const float mag_z_abs = sqrtf(math::max(sq(mag_earth_predicted.length()) - sq(mag_meas(0)) - sq(mag_meas(1)), 0.0f));
 
-	// calculate sign of synthetic magnetomter Z component based on the sign of the predicted magnetomer Z component
+	// calculate sign of synthetic magnetomter Z component based on the sign of the predicted magnetometer Z component
 	const float mag_z_body_pred = mag_earth_predicted.dot(_R_to_earth.col(2));
 
 	return (mag_z_body_pred < 0) ? -mag_z_abs : mag_z_abs;

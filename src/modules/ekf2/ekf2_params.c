@@ -53,6 +53,18 @@
 PARAM_DEFINE_INT32(EKF2_PREDICT_US, 10000);
 
 /**
+ * IMU control
+ *
+ * @group EKF2
+ * @min 0
+ * @max 7
+ * @bit 0 Gyro Bias
+ * @bit 1 Accel Bias
+ * @bit 2 Gravity vector fusion
+ */
+PARAM_DEFINE_INT32(EKF2_IMU_CTRL, 3);
+
+/**
  * Magnetometer measurement delay relative to IMU measurements
  *
  * @group EKF2
@@ -477,9 +489,10 @@ PARAM_DEFINE_INT32(EKF2_DECL_TYPE, 7);
 /**
  * Type of magnetometer fusion
  *
- * Integer controlling the type of magnetometer fusion used - magnetic heading or 3-component vector. The fuson of magnetomer data as a three component vector enables vehicle body fixed hard iron errors to be learned, but requires a stable earth field.
+ * Integer controlling the type of magnetometer fusion used - magnetic heading or 3-component vector.
+ * The fusion of magnetometer data as a three component vector enables vehicle body fixed hard iron errors to be learned, but requires a stable earth field.
  * If set to 'Automatic' magnetic heading fusion is used when on-ground and 3-axis magnetic field fusion in-flight with fallback to magnetic heading fusion if there is insufficient motion to make yaw or magnetic field states observable.
- * If set to 'Magnetic heading' magnetic heading fusion is used at all times
+ * If set to 'Magnetic heading' magnetic heading fusion is used at all times.
  * If set to '3-axis' 3-axis field fusion is used at all times.
  * If set to 'VTOL custom' the behaviour is the same as 'Automatic', but if fusing airspeed, magnetometer fusion is only allowed to modify the magnetic field states. This can be used by VTOL platforms with large magnetic field disturbances to prevent incorrect bias states being learned during forward flight operation which can adversely affect estimation accuracy after transition to hovering flight.
  * If set to 'MC custom' the behaviour is the same as 'Automatic, but if there are no earth frame position or velocity observations being used, the magnetometer will not be used. This enables vehicles to operate with no GPS in environments where the magnetic field cannot be used to provide a heading reference. Prior to flight, the yaw angle is assumed to be constant if movement tests indicate that the vehicle is static. This allows the vehicle to be placed on the ground to learn the yaw gyro bias prior to flight.
@@ -498,7 +511,7 @@ PARAM_DEFINE_INT32(EKF2_MAG_TYPE, 0);
 /**
  * Horizontal acceleration threshold used by automatic selection of magnetometer fusion method.
  *
- * This parameter is used when the magnetometer fusion method is set automatically (EKF2_MAG_TYPE = 0). If the filtered horizontal acceleration is greater than this parameter value, then the EKF will use 3-axis magnetomer fusion.
+ * This parameter is used when the magnetometer fusion method is set automatically (EKF2_MAG_TYPE = 0). If the filtered horizontal acceleration is greater than this parameter value, then the EKF will use 3-axis magnetometer fusion.
  *
  * @group EKF2
  * @min 0.0
@@ -511,7 +524,7 @@ PARAM_DEFINE_FLOAT(EKF2_MAG_ACCLIM, 0.5f);
 /**
  * Yaw rate threshold used by automatic selection of magnetometer fusion method.
  *
- * This parameter is used when the magnetometer fusion method is set automatically (EKF2_MAG_TYPE = 0). If the filtered yaw rate is greater than this parameter value, then the EKF will use 3-axis magnetomer fusion.
+ * This parameter is used when the magnetometer fusion method is set automatically (EKF2_MAG_TYPE = 0). If the filtered yaw rate is greater than this parameter value, then the EKF will use 3-axis magnetometer fusion.
  *
  * @group EKF2
  * @min 0.0
@@ -602,7 +615,7 @@ PARAM_DEFINE_FLOAT(EKF2_TAS_GATE, 3.0f);
  * Set bits in the following positions to enable:
  * 0 : Deprecated, use EKF2_GPS_CTRL instead
  * 1 : Set to true to use optical flow data if available
- * 2 : Set to true to inhibit IMU delta velocity bias estimation
+ * 2 : Deprecated, use EKF2_IMU_CTRL instead
  * 3 : Deprecated, use EKF2_EV_CTRL instead
  * 4 : Deprecated, use EKF2_EV_CTRL instead
  * 5 : Set to true to enable multi-rotor drag specific force fusion
@@ -615,7 +628,7 @@ PARAM_DEFINE_FLOAT(EKF2_TAS_GATE, 3.0f);
  * @max 511
  * @bit 0 unused
  * @bit 1 use optical flow
- * @bit 2 inhibit IMU bias estimation
+ * @bit 2 unused
  * @bit 3 unused
  * @bit 4 unused
  * @bit 5 multi-rotor drag fusion
@@ -842,6 +855,17 @@ PARAM_DEFINE_FLOAT(EKF2_EVV_NOISE, 0.1f);
  * @decimal 2
  */
 PARAM_DEFINE_FLOAT(EKF2_EVA_NOISE, 0.1f);
+
+/**
+ * Accelerometer measurement noise for gravity based observations.
+ *
+ * @group EKF2
+ * @min 0.1
+ * @max 10.0
+ * @unit m/s^2
+ * @decimal 2
+ */
+PARAM_DEFINE_FLOAT(EKF2_GRAV_NOISE, 1.0f);
 
 /**
  * Measurement noise for the optical flow sensor when it's reported quality metric is at the maximum
@@ -1413,6 +1437,19 @@ PARAM_DEFINE_FLOAT(EKF2_ABL_GYRLIM, 3.0f);
  * @decimal 2
  */
 PARAM_DEFINE_FLOAT(EKF2_ABL_TAU, 0.5f);
+
+/**
+ * Gyro bias learning limit.
+ *
+ * The ekf delta angle bias states will be limited to within a range equivalent to +- of this value.
+ *
+ * @group EKF2
+ * @min 0.0
+ * @max 0.4
+ * @unit rad/s
+ * @decimal 3
+ */
+PARAM_DEFINE_FLOAT(EKF2_GYR_B_LIM, 0.15f);
 
 /**
  * Required GPS health time on startup

@@ -47,6 +47,37 @@
 
 #include <mathlib/mathlib.h>
 
+void Ekf::controlBetaFusion(const imuSample &imu_delayed)
+{
+	_control_status.flags.fuse_beta = _params.beta_fusion_enabled && _control_status.flags.fixed_wing
+		&& _control_status.flags.in_air && !_control_status.flags.fake_pos;
+
+	if (_control_status.flags.fuse_beta) {
+
+		// Perform synthetic sideslip fusion at regular intervals when in-air and sideslip fusion had been enabled externally:
+		const bool beta_fusion_time_triggered = isTimedOut(_aid_src_sideslip.time_last_fuse, _params.beta_avg_ft_us);
+
+		if (beta_fusion_time_triggered) {
+
+			updateSideslip(_aid_src_sideslip);
+			_innov_check_fail_status.flags.reject_sideslip = _aid_src_sideslip.innovation_rejected;
+
+			// If starting wind state estimation, reset the wind states and covariances before fusing any data
+			if (!_control_status.flags.wind) {
+				// activate the wind states
+				_control_status.flags.wind = true;
+				// reset the timeout timers to prevent repeated resets
+				_aid_src_sideslip.time_last_fuse = imu_delayed.time_us;
+				resetWindToZero();
+			}
+
+			if (Vector2f(Vector2f(_state.vel) - _state.wind_vel).longerThan(7.f)) {
+				fuseSideslip(_aid_src_sideslip);
+			}
+		}
+	}
+}
+
 void Ekf::updateSideslip(estimator_aid_source1d_s &sideslip) const
 {
 	// reset flags
@@ -65,7 +96,7 @@ void Ekf::updateSideslip(estimator_aid_source1d_s &sideslip) const
 
 	sideslip.fusion_enabled = _control_status.flags.fuse_aspd;
 
-	sideslip.timestamp_sample = _imu_sample_delayed.time_us;
+	sideslip.timestamp_sample = _time_delayed_us;
 
 	const float innov_gate = fmaxf(_params.beta_innov_gate, 1.f);
 	setEstimatorAidStatusTestRatio(sideslip, innov_gate);
@@ -121,6 +152,6 @@ void Ekf::fuseSideslip(estimator_aid_source1d_s &sideslip)
 	_fault_status.flags.bad_sideslip = !is_fused;
 
 	if (is_fused) {
-		sideslip.time_last_fuse = _imu_sample_delayed.time_us;
+		sideslip.time_last_fuse = _time_delayed_us;
 	}
 }

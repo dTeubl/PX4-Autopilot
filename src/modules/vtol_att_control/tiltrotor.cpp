@@ -71,14 +71,9 @@ void Tiltrotor::update_vtol_state()
 	 * forward completely. For the backtransition the motors simply rotate back.
 	*/
 
-	if (_vtol_vehicle_status->vtol_transition_failsafe) {
+	if (_vtol_vehicle_status->fixed_wing_system_failure) {
 		// Failsafe event, switch to MC mode immediately
 		_vtol_mode = vtol_mode::MC_MODE;
-
-		//reset failsafe when FW is no longer requested
-		if (!_attc->is_fixed_wing_requested()) {
-			_vtol_vehicle_status->vtol_transition_failsafe = false;
-		}
 
 	} else 	if (!_attc->is_fixed_wing_requested()) {
 
@@ -88,7 +83,7 @@ void Tiltrotor::update_vtol_state()
 			break;
 
 		case vtol_mode::FW_MODE:
-			resetTransitionTimer();
+			resetTransitionStates();
 			_vtol_mode = vtol_mode::TRANSITION_BACK;
 			break;
 
@@ -131,7 +126,7 @@ void Tiltrotor::update_vtol_state()
 		switch (_vtol_mode) {
 		case vtol_mode::MC_MODE:
 			// initialise a front transition
-			resetTransitionTimer();
+			resetTransitionStates();
 			_vtol_mode = vtol_mode::TRANSITION_FRONT_P1;
 			break;
 
@@ -139,27 +134,9 @@ void Tiltrotor::update_vtol_state()
 			break;
 
 		case vtol_mode::TRANSITION_FRONT_P1: {
-
-				const bool airspeed_triggers_transition = PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)
-						&& !_param_fw_arsp_mode.get() ;
-
-				bool transition_to_p2 = false;
-
-				if (_time_since_trans_start > getMinimumFrontTransitionTime()) {
-					if (airspeed_triggers_transition) {
-						transition_to_p2 = _airspeed_validated->calibrated_airspeed_m_s >= _param_vt_arsp_trans.get() ;
-
-					} else {
-						transition_to_p2 = _tilt_control >= _param_vt_tilt_trans.get() &&
-								   _time_since_trans_start > getOpenLoopFrontTransitionTime();
-					}
-				}
-
-				transition_to_p2 |= can_transition_on_ground();
-
-				if (transition_to_p2) {
+				if (isFrontTransitionCompleted()) {
 					_vtol_mode = vtol_mode::TRANSITION_FRONT_P2;
-					resetTransitionTimer();
+					resetTransitionStates();
 				}
 
 				break;
@@ -530,4 +507,9 @@ float Tiltrotor::timeUntilMotorsAreUp()
 float Tiltrotor::moveLinear(float start, float stop, float progress)
 {
 	return start + progress * (stop - start);
+}
+
+bool Tiltrotor::isFrontTransitionCompletedBase()
+{
+	return VtolType::isFrontTransitionCompletedBase() && _tilt_control >= _param_vt_tilt_trans.get();
 }

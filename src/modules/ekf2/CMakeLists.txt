@@ -82,6 +82,7 @@ px4_add_module(
 		3600
 	SRCS
 		EKF/airspeed_fusion.cpp
+		EKF/auxvel_fusion.cpp
 		EKF/baro_height_control.cpp
 		EKF/bias_estimator.cpp
 		EKF/control.cpp
@@ -102,12 +103,14 @@ px4_add_module(
 		EKF/gps_checks.cpp
 		EKF/gps_control.cpp
 		EKF/gps_yaw_fusion.cpp
+		EKF/gravity_fusion.cpp
 		EKF/height_control.cpp
 		EKF/imu_down_sampler.cpp
 		EKF/mag_control.cpp
 		EKF/mag_fusion.cpp
 		EKF/optical_flow_control.cpp
 		EKF/optflow_fusion.cpp
+		EKF/output_predictor.cpp
 		EKF/range_finder_consistency_check.cpp
 		EKF/range_height_control.cpp
 		EKF/sensor_range_finder.cpp

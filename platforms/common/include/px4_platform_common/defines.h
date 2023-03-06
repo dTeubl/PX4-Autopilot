@@ -40,6 +40,8 @@
 #pragma once
 
 #include <sys/ioctl.h>
+#include <px4_boardconfig.h>
+
 
 /****************************************************************************
  * Defines for all platforms.
@@ -95,9 +97,12 @@ __BEGIN_DECLS
 extern long PX4_TICKS_PER_SEC;
 __END_DECLS
 
-#define PX4_ROOTFSDIR "."
+#define PX4_ROOTFSDIR CONFIG_BOARD_ROOTFSDIR
 
+// Qurt doesn't have an SD card for storage
+#ifndef __PX4_QURT
 #define PX4_STORAGEDIR PX4_ROOTFSDIR
+#endif
 
 /****************************************************************************
  * Defines for POSIX and ROS
