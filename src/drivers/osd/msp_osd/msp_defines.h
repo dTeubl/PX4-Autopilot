@@ -386,9 +386,9 @@ struct msp_raw_gps_t {
 	uint8_t  numSat;
 	int32_t  lat;           // 1 / 10000000 deg
 	int32_t  lon;           // 1 / 10000000 deg
-	int16_t  alt;           // meters
+	int16_t  alt;           // centimeters since MSP API 1.39, meters before
 	int16_t  groundSpeed;   // cm/s
-	int16_t  groundCourse;  // unit: degree x 10
+	int16_t  groundCourse;  // unit: degree x 100, centidegrees
 	uint16_t hdop;
 } __attribute__((packed));
 
@@ -848,4 +848,3 @@ enum betaflightDJIModesMask_e {
 // 0b00100000 resc
 // 0b01000000 acro
 // 0b10000000 acro
-

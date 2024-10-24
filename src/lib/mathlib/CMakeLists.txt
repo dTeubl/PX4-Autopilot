@@ -33,6 +33,7 @@
 
 px4_add_library(mathlib
 	math/test/test.cpp
+	math/filter/FilteredDerivative.hpp
 	math/filter/LowPassFilter2p.hpp
 	math/filter/MedianFilter.hpp
 	math/filter/NotchFilter.hpp
@@ -48,3 +49,4 @@ px4_add_unit_gtest(SRC math/FunctionsTest.cpp)
 px4_add_unit_gtest(SRC math/test/UtilitiesTest.cpp)
 px4_add_unit_gtest(SRC math/WelfordMeanTest.cpp)
 px4_add_unit_gtest(SRC math/WelfordMeanVectorTest.cpp)
+px4_add_unit_gtest(SRC math/MaxDistanceToCircleTest.cpp)

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2022 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2022-2023 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,9 @@
 #include "../navigation.h"
 #include <mathlib/mathlib.h>
 #include <uORB/topics/home_position.h>
+#include <uORB/topics/rtl_status.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/Subscription.hpp>
 #include <px4_platform_common/module_params.h>
@@ -76,11 +78,9 @@ public:
 	bool someCheckFailed()
 	{
 		return _takeoff_failed ||
-		       _distance_first_waypoint_failed ||
 		       _distance_between_waypoints_failed ||
 		       _land_pattern_validity_failed ||
 		       _fixed_wing_land_approach_failed ||
-		       _below_home_alt_failed ||
 		       _mission_validity_failed ||
 		       _takeoff_land_available_failed;
 	}
@@ -96,16 +96,17 @@ private:
 	uORB::Subscription _home_pos_sub{ORB_ID(home_position)};
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _land_detector_sub{ORB_ID(vehicle_land_detected)};
+	uORB::Subscription _rtl_status_sub{ORB_ID(rtl_status)};
 
 	// parameters
 	float _param_fw_lnd_ang{0.f};
 	float _param_mis_dist_1wp{0.f};
-	float _param_mis_dist_wps{0.f};
 	float _param_nav_acc_rad{0.f};
 	int32_t _param_mis_takeoff_land_req{0};
 
 	bool _is_landed{false};
 	float _home_alt_msl{NAN};
+	bool _has_vtol_approach{false};
 	matrix::Vector2d _home_lat_lon = matrix::Vector2d((double)NAN, (double)NAN);
 	VehicleType _vehicle_type{VehicleType::RotaryWing};
 
@@ -113,11 +114,10 @@ private:
 	bool _mission_validity_failed{false};
 	bool _takeoff_failed{false};
 	bool _land_pattern_validity_failed{false};
-	bool _distance_first_waypoint_failed{false};
 	bool _distance_between_waypoints_failed{false};
-	bool _below_home_alt_failed{false};
 	bool _fixed_wing_land_approach_failed{false};
 	bool _takeoff_land_available_failed{false};
+	bool _items_fit_to_vehicle_type_failed{false};
 
 	// internal checkTakeoff related variables
 	bool _found_item_with_position{false};
@@ -130,7 +130,7 @@ private:
 	int _landing_approach_index{-1};
 	mission_item_s _mission_item_previous = {};
 
-	// internal checkDistanceToFirstWaypoint variables
+	// internal checkHorizontalDistanceToFirstWaypoint variables
 	bool _first_waypoint_found{false};
 
 	// internal checkDistancesBetweenWaypoints variables
@@ -162,6 +162,14 @@ private:
 	bool checkTakeoff(mission_item_s &mission_item);
 
 	/**
+	 * @brief Check if the mission items fit to the vehicle type
+	 *
+	 * @param mission_item The current mission item
+	 * @return False if the check failed.
+	*/
+	bool checkItemsFitToVehicleType(const mission_item_s &mission_item);
+
+	/**
 	 * @brief Check validity of landing pattern (fixed wing & vtol)
 	 *
 	 * @param mission_item The current mission item
@@ -172,12 +180,12 @@ private:
 	bool checkLandPatternValidity(mission_item_s &mission_item, const int current_index, const int last_index);
 
 	/**
-	 * @brief Check distance to first waypoint.
+	 * @brief Check distance to first waypoint from current vehicle position (if available).
 	 *
 	 * @param mission_item The current mission item
 	 * @return False if the check failed.
 	*/
-	bool checkDistanceToFirstWaypoint(mission_item_s &mission_item);
+	bool checkHorizontalDistanceToFirstWaypoint(mission_item_s &mission_item);
 
 	/**
 	 * @brief Check distances between waypoints
@@ -186,15 +194,6 @@ private:
 	 * @return False if the check failed.
 	*/
 	bool checkDistancesBetweenWaypoints(const mission_item_s &mission_item);
-
-	/**
-	 * @brief Check if any waypoint is below the home altitude. Issues warning only.
-	 *
-	 * @param mission_item The current mission item
-	 * @param current_index The current mission index
-	 * @return Always returns true, only issues warning.
-	*/
-	bool checkIfBelowHomeAltitude(const mission_item_s &mission_item, const int current_index);
 
 	/**
 	 * @brief Check fixed wing land approach (fixed wing only)
@@ -247,4 +246,8 @@ private:
 	 * @return False if the check failed.
 	*/
 	void doMulticopterChecks(mission_item_s &mission_item, const int current_index);
+
+	// Helper functions
+
+	bool hasMissionBothOrNeitherTakeoffAndLanding();
 };

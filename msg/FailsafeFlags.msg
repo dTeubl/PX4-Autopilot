@@ -17,6 +17,7 @@ uint32 mode_req_offboard_signal
 uint32 mode_req_home_position
 uint32 mode_req_wind_and_flight_time_compliance # if set, mode cannot be entered if wind or flight time limit exceeded
 uint32 mode_req_prevent_arming    # if set, cannot arm while in this mode
+uint32 mode_req_manual_control
 uint32 mode_req_other             # other requirements, not covered above (for external modes)
 
 
@@ -37,22 +38,21 @@ bool manual_control_signal_lost       # Manual control (RC) signal lost
 bool gcs_connection_lost              # GCS connection lost
 
 # Battery
-uint8 battery_warning                 # Battery warning level
+uint8 battery_warning                 # Battery warning level (see BatteryStatus.msg)
 bool battery_low_remaining_time       # Low battery based on remaining flight time
 bool battery_unhealthy                # Battery unhealthy
 
 # Other
-bool primary_geofence_breached        # Primary Geofence breached
+bool geofence_breached        	      # Geofence breached (one or multiple)
 bool mission_failure                  # Mission failure
 bool vtol_fixed_wing_system_failure   # vehicle in fixed-wing system failure failsafe mode (after quad-chute)
 bool wind_limit_exceeded              # Wind limit exceeded
 bool flight_time_limit_exceeded       # Maximum flight time exceeded
 bool local_position_accuracy_low      # Local position estimate has dropped below threshold, but is currently still declared valid
+bool navigator_failure        	      # Navigator failed to execute a mode
 
 # Failure detector
 bool fd_critical_failure              # Critical failure (attitude/altitude limit exceeded, or external ATS)
 bool fd_esc_arming_failure            # ESC failed to arm
 bool fd_imbalanced_prop               # Imbalanced propeller detected
 bool fd_motor_failure                 # Motor failure
-
-

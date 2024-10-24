@@ -59,8 +59,8 @@ public:
 	bool isAvailable() { return _input_available; };
 
 	// Position : 0 : pitch, 1 : roll, 2 : throttle, 3 : yaw
-	const matrix::Vector<float, 4> &getPosition() { return _positions; }; // Raw stick position, no deadzone
-	const matrix::Vector<float, 4> &getPositionExpo() { return _positions_expo; }; // Deadzone and expo applied
+	const matrix::Vector4f &getPosition() { return _positions; }; // Raw stick position, no deadzone
+	const matrix::Vector4f &getPositionExpo() { return _positions_expo; }; // Deadzone and expo applied
 
 	// Helper functions to get stick values more intuitively
 	float getRoll() const { return _positions(1); }
@@ -73,6 +73,8 @@ public:
 	float getThrottleZeroCenteredExpo() const { return -_positions_expo(2); }
 	const matrix::Vector2f getPitchRoll() { return _positions.slice<2, 1>(0, 0); }
 	const matrix::Vector2f getPitchRollExpo() { return _positions_expo.slice<2, 1>(0, 0); }
+
+	const matrix::Vector<float, 6> &getAux() const { return _aux_positions; }
 
 	/**
 	 * Limit the the horizontal input from a square shaped joystick gimbal to a unit circle
@@ -90,8 +92,10 @@ public:
 
 private:
 	bool _input_available{false};
-	matrix::Vector<float, 4> _positions; ///< unmodified manual stick inputs
-	matrix::Vector<float, 4> _positions_expo; ///< modified manual sticks using expo function
+	matrix::Vector4f _positions; ///< unmodified manual stick inputs that usually move vehicle in x, y, z and yaw direction
+	matrix::Vector4f _positions_expo; ///< modified manual sticks using expo function
+
+	matrix::Vector<float, 6> _aux_positions;
 
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _failsafe_flags_sub{ORB_ID(failsafe_flags)};

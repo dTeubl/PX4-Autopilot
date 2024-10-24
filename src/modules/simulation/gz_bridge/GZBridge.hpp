@@ -35,6 +35,7 @@
 
 #include "GZMixingInterfaceESC.hpp"
 #include "GZMixingInterfaceServo.hpp"
+#include "GZMixingInterfaceWheel.hpp"
 
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/defines.h>
@@ -56,6 +57,8 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/sensor_baro.h>
 #include <uORB/topics/vehicle_odometry.h>
+#include <uORB/topics/wheel_encoders.h>
+#include <uORB/topics/obstacle_distance.h>
 
 #include <gz/math.hh>
 #include <gz/msgs.hh>
@@ -63,7 +66,11 @@
 
 #include <gz/msgs/imu.pb.h>
 #include <gz/msgs/fluid_pressure.pb.h>
+#include <gz/msgs/model.pb.h>
 #include <gz/msgs/odometry_with_covariance.pb.h>
+#include <gz/msgs/laserscan.pb.h>
+#include <gz/msgs/stringmsg.pb.h>
+#include <gz/msgs/scene.pb.h>
 
 using namespace time_literals;
 
@@ -102,11 +109,63 @@ private:
 	void imuCallback(const gz::msgs::IMU &imu);
 	void poseInfoCallback(const gz::msgs::Pose_V &pose);
 	void odometryCallback(const gz::msgs::OdometryWithCovariance &odometry);
+	void navSatCallback(const gz::msgs::NavSat &nav_sat);
+	void laserScanCallback(const gz::msgs::LaserScan &scan);
+
+	/**
+	 * @brief Call Entityfactory service
+	 *
+	 * @param req
+	 * @return true
+	 * @return false
+	 */
+	bool callEntityFactoryService(const std::string &service, const gz::msgs::EntityFactory &req);
+
+
+	/**
+	 * @brief Call scene info service
+	 *
+	 * @param service
+	 * @param req
+	 * @return true
+	 * @return false
+	 */
+	bool callSceneInfoMsgService(const std::string &service);
+
+	/**
+	 * @brief Call String service
+	 *
+	 * @param service
+	 * @param req
+	 * @return true
+	 * @return false
+	 */
+	bool callStringMsgService(const std::string &service, const gz::msgs::StringMsg &req);
+
+	/**
+	 * @brief Call Vector3d Service
+	 *
+	 * @param service
+	 * @param req
+	 * @return true
+	 * @return false
+	 */
+	bool callVector3dService(const std::string &service, const gz::msgs::Vector3d &req);
+	/**
+	*
+	* Convert a quaterion from FLU_to_ENU frames (ROS convention)
+	* to FRD_to_NED frames (PX4 convention)
+	*
+	* @param q_FRD_to_NED output quaterion in PX4 conventions
+	* @param q_FLU_to_ENU input quaterion in ROS conventions
+	*/
+	static void rotateQuaternion(gz::math::Quaterniond &q_FRD_to_NED, const gz::math::Quaterniond q_FLU_to_ENU);
 
 	// Subscriptions
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	//uORB::Publication<differential_pressure_s>    _differential_pressure_pub{ORB_ID(differential_pressure)};
+	uORB::Publication<obstacle_distance_s>        _obstacle_distance_pub{ORB_ID(obstacle_distance)};
 	uORB::Publication<vehicle_angular_velocity_s> _angular_velocity_ground_truth_pub{ORB_ID(vehicle_angular_velocity_groundtruth)};
 	uORB::Publication<vehicle_attitude_s>         _attitude_ground_truth_pub{ORB_ID(vehicle_attitude_groundtruth)};
 	uORB::Publication<vehicle_global_position_s>  _gpos_ground_truth_pub{ORB_ID(vehicle_global_position_groundtruth)};
@@ -119,12 +178,14 @@ private:
 
 	GZMixingInterfaceESC   _mixing_interface_esc{_node, _node_mutex};
 	GZMixingInterfaceServo _mixing_interface_servo{_node, _node_mutex};
+	GZMixingInterfaceWheel _mixing_interface_wheel{_node, _node_mutex};
 
 	px4::atomic<uint64_t> _world_time_us{0};
 
 	pthread_mutex_t _node_mutex;
 
 	MapProjection _pos_ref{};
+	double _alt_ref{}; // starting altitude reference
 
 	matrix::Vector3d _position_prev{};
 	matrix::Vector3d _velocity_prev{};
@@ -139,10 +200,4 @@ private:
 	float _temperature{288.15};  // 15 degrees
 
 	gz::transport::Node _node;
-
-	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::SIM_GZ_HOME_LAT>) _param_sim_home_lat,
-		(ParamFloat<px4::params::SIM_GZ_HOME_LON>) _param_sim_home_lon,
-		(ParamFloat<px4::params::SIM_GZ_HOME_ALT>) _param_sim_home_alt
-	)
 };

@@ -5,17 +5,11 @@
 # @type Underwater Robot
 # @class Underwater Robot
 #
-# @maintainer
-#
 # @board px4_fmu-v2 exclude
 # @board bitcraze_crazyflie exclude
 #
 
 . ${R}etc/init.d/rc.uuv_defaults
-
-# disable circuit breaker for airspeed sensor
-param set-default CBRK_AIRSPD_CHK 162128
-
 
 param set-default CA_AIRFRAME 7
 param set-default CA_ROTOR_COUNT 4
@@ -48,4 +42,3 @@ param set-default CA_ROTOR3_KM 0
 param set-default CA_ROTOR3_PX 0
 param set-default CA_ROTOR3_PY -0.3
 param set-default CA_ROTOR3_PZ 0.3
-

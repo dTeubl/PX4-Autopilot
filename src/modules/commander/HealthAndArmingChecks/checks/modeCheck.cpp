@@ -58,7 +58,7 @@ void ModeChecks::checkAndReport(const Context &context, Report &reporter)
 		 * @description
 		 * Wait until the estimator initialized
 		 */
-		reporter.armingCheckFailure((NavModes)reporter.failsafeFlags().mode_req_attitude, health_component_t::system,
+		reporter.armingCheckFailure((NavModes)reporter.failsafeFlags().mode_req_attitude, health_component_t::attitude_estimate,
 					    events::ID("check_modes_attitude"),
 					    events::Log::Critical, "No valid attitude estimate");
 		reporter.clearCanRunBits((NavModes)reporter.failsafeFlags().mode_req_attitude);
@@ -77,28 +77,35 @@ void ModeChecks::checkAndReport(const Context &context, Report &reporter)
 
 	if (local_position_modes != NavModes::None) {
 		/* EVENT
+		 * @description
+		 * The available positioning data is not sufficient to execute the selected mode.
 		 */
-		reporter.armingCheckFailure(local_position_modes, health_component_t::system,
+		reporter.armingCheckFailure(local_position_modes, health_component_t::local_position_estimate,
 					    events::ID("check_modes_local_pos"),
-					    events::Log::Error, "No valid local position estimate");
+					    events::Log::Error, "Navigation error: No valid position estimate");
 		reporter.clearCanRunBits(local_position_modes);
 	}
 
 	if (reporter.failsafeFlags().global_position_invalid && reporter.failsafeFlags().mode_req_global_position != 0) {
 		/* EVENT
+		 * @description
+		 * The available positioning data is not sufficient to execute the selected mode.
 		 */
-		reporter.armingCheckFailure((NavModes)reporter.failsafeFlags().mode_req_global_position, health_component_t::system,
+		reporter.armingCheckFailure((NavModes)reporter.failsafeFlags().mode_req_global_position,
+					    health_component_t::global_position_estimate,
 					    events::ID("check_modes_global_pos"),
-					    events::Log::Error, "No valid global position estimate");
+					    events::Log::Error, "Navigation error: No valid global position estimate");
 		reporter.clearCanRunBits((NavModes)reporter.failsafeFlags().mode_req_global_position);
 	}
 
 	if (reporter.failsafeFlags().local_altitude_invalid && reporter.failsafeFlags().mode_req_local_alt != 0) {
 		/* EVENT
+		 * @description
+		 * The available positioning data is not sufficient to execute the selected mode.
 		 */
 		reporter.armingCheckFailure((NavModes)reporter.failsafeFlags().mode_req_local_alt, health_component_t::system,
 					    events::ID("check_modes_local_alt"),
-					    events::Log::Critical, "No valid altitude estimate");
+					    events::Log::Critical, "Navigation error: No valid altitude estimate");
 		reporter.clearCanRunBits((NavModes)reporter.failsafeFlags().mode_req_local_alt);
 	}
 
@@ -141,6 +148,26 @@ void ModeChecks::checkAndReport(const Context &context, Report &reporter)
 					    events::ID("check_modes_home_position"),
 					    events::Log::Info, "Home position not set");
 		reporter.clearCanRunBits((NavModes)reporter.failsafeFlags().mode_req_home_position);
+	}
+
+	if (reporter.failsafeFlags().manual_control_signal_lost && reporter.failsafeFlags().mode_req_manual_control != 0) {
+		const bool rc_disabled = (_param_com_rc_in_mode.get() == 4);
+		NavModes nav_modes = rc_disabled ? (NavModes)reporter.failsafeFlags().mode_req_manual_control : NavModes::None;
+		events::LogLevel log_level = rc_disabled ? events::Log::Error : events::Log::Warning;
+
+		/* EVENT
+		 * @description
+		 * Connect and enable stick input or use autonomous mode.
+		 * <profile name="dev">
+		 * Sticks can be enabled via <param>COM_RC_IN_MODE</param> parameter.
+		 * </profile>
+		 */
+		reporter.armingCheckFailure(nav_modes,
+					    health_component_t::remote_control,
+					    events::ID("check_modes_manual_control"),
+					    log_level, "No manual control input");
+		reporter.clearArmingBits((NavModes)reporter.failsafeFlags().mode_req_manual_control);
+		reporter.clearCanRunBits((NavModes)reporter.failsafeFlags().mode_req_manual_control);
 	}
 
 	if (reporter.failsafeFlags().mode_req_other != 0) {

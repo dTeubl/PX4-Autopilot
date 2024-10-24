@@ -120,6 +120,7 @@ add_custom_command(
 		${romfs_gen_root_dir}/init.d/rc.serial
 		${romfs_gen_root_dir}/init.d/rc.autostart
 		${romfs_gen_root_dir}/init.d/rc.autostart.post
+		${romfs_gen_root_dir}/init.d/rc.filepaths
 		${romfs_copy_stamp}
 	COMMAND ${CMAKE_COMMAND} -E remove_directory ${romfs_gen_root_dir}/*
 	COMMAND ${CMAKE_COMMAND} -E tar xf ${romfs_tar_file}
@@ -131,16 +132,14 @@ add_custom_command(
 		--rc-dir ${romfs_gen_root_dir}/init.d
 		--serial-ports ${board_serial_ports} ${added_arguments}
 		--config-files ${module_config_files} #--verbose
+	COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/filepaths/generate_config.py
+		--rc-dir ${romfs_gen_root_dir}/init.d
+		--params-file ${CONFIG_BOARD_PARAM_FILE}
 	COMMAND ${CMAKE_COMMAND} -E touch ${romfs_copy_stamp}
 	WORKING_DIRECTORY ${romfs_gen_root_dir}
 	DEPENDS ${romfs_tar_file}
 	COMMENT "ROMFS: copying, generating airframes"
 	)
-
-if(EXISTS ${PX4_BOARD_DIR}/extras/${PX4_BOARD_VENDOR}_${PX4_BOARD_MODEL}_bootloader.bin)
-	set(BOARD_FIRMWARE_BIN "${PX4_BOARD_VENDOR}_${PX4_BOARD_MODEL}_bootloader.bin")
-	configure_file(${PX4_SOURCE_DIR}/platforms/nuttx/init/rc.board_bootloader_upgrade.in ${romfs_gen_root_dir}/init.d/rc.board_bootloader_upgrade @ONLY)
-endif()
 
 # copy extras into ROMFS
 set(extras_dependencies)
@@ -207,6 +206,24 @@ endforeach()
 # board extras
 set(OPTIONAL_BOARD_EXTRAS)
 file(GLOB OPTIONAL_BOARD_EXTRAS ${PX4_BOARD_DIR}/extras/*)
+
+# bootloader (optional)
+#  - if systemcmds/bl_update included and board bootloader available then generate rc.board_bootloader_upgrade and copy bootloader binary
+#  - otherwise remove bootloader binary from extras in final ROMFS
+foreach(board_extra_file ${OPTIONAL_BOARD_EXTRAS})
+	file(RELATIVE_PATH extra_file_base_name ${PX4_BOARD_DIR}/extras/ ${board_extra_file})
+	if(${extra_file_base_name} MATCHES "${PX4_BOARD_VENDOR}_${PX4_BOARD_MODEL}_bootloader.bin")
+		if(CONFIG_SYSTEMCMDS_BL_UPDATE)
+			# generate rc.board_bootloader_upgrade
+			set(BOARD_FIRMWARE_BIN "${PX4_BOARD_VENDOR}_${PX4_BOARD_MODEL}_bootloader.bin")
+			configure_file(${PX4_SOURCE_DIR}/platforms/nuttx/init/rc.board_bootloader_upgrade.in ${romfs_gen_root_dir}/init.d/rc.board_bootloader_upgrade @ONLY)
+		else()
+			# remove bootloader from extras
+			list(REMOVE_ITEM OPTIONAL_BOARD_EXTRAS ${board_extra_file})
+		endif()
+
+	endif()
+endforeach()
 
 foreach(board_extra_file ${OPTIONAL_BOARD_EXTRAS})
 
@@ -307,6 +324,7 @@ add_custom_target(romfs_gen_files_target
 	DEPENDS
 		${romfs_copy_stamp}
 		${romfs_gen_root_dir}/init.d/rc.serial
+		${romfs_gen_root_dir}/init.d/rc.filepaths
 		romfs_extras.stamp
 	)
 

@@ -45,7 +45,6 @@
 #include "vtol_att_control_main.h"
 
 #include <float.h>
-#include <uORB/topics/landing_gear.h>
 
 using namespace matrix;
 
@@ -173,6 +172,11 @@ void Standard::update_transition_state()
 
 	VtolType::update_transition_state();
 
+	const Eulerf attitude_setpoint_euler(Quatf(_v_att_sp->q_d));
+	float roll_body = attitude_setpoint_euler.phi();
+	float pitch_body = attitude_setpoint_euler.theta();
+	float yaw_body = attitude_setpoint_euler.psi();
+
 	// we get attitude setpoint from a multirotor flighttask if climbrate is controlled.
 	// in any other case the fixed wing attitude controller publishes attitude setpoint from manual stick input.
 	if (_v_control_mode->flag_control_climb_rate_enabled) {
@@ -182,7 +186,7 @@ void Standard::update_transition_state()
 		}
 
 		memcpy(_v_att_sp, _mc_virtual_att_sp, sizeof(vehicle_attitude_setpoint_s));
-		_v_att_sp->roll_body = _fw_virtual_att_sp->roll_body;
+		roll_body = Eulerf(Quatf(_fw_virtual_att_sp->q_d)).phi();
 
 	} else {
 		// we need a recent incoming (fw virtual) attitude setpoint, otherwise return (means the previous setpoint stays active)
@@ -201,47 +205,46 @@ void Standard::update_transition_state()
 
 		} else if (_pusher_throttle <= _param_vt_f_trans_thr.get()) {
 			// ramp up throttle to the target throttle value
+			const float dt = math::min((now - _last_time_pusher_transition_update) / 1e6f, 0.05f);
 			_pusher_throttle = math::min(_pusher_throttle +
-						     _param_vt_psher_slew.get() * _dt, _param_vt_f_trans_thr.get());
+						     _param_vt_psher_slew.get() * dt, _param_vt_f_trans_thr.get());
+
+			_last_time_pusher_transition_update = now;
 		}
 
-		_airspeed_trans_blend_margin = _param_vt_arsp_trans.get() - _param_vt_arsp_blend.get();
+		_airspeed_trans_blend_margin = getTransitionAirspeed() - getBlendAirspeed();
 
 		// do blending of mc and fw controls if a blending airspeed has been provided and the minimum transition time has passed
 		if (_airspeed_trans_blend_margin > 0.0f &&
 		    PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s) &&
 		    _airspeed_validated->calibrated_airspeed_m_s > 0.0f &&
-		    _airspeed_validated->calibrated_airspeed_m_s >= _param_vt_arsp_blend.get() &&
+		    _airspeed_validated->calibrated_airspeed_m_s >= getBlendAirspeed() &&
 		    _time_since_trans_start > getMinimumFrontTransitionTime()) {
 
-			mc_weight = 1.0f - fabsf(_airspeed_validated->calibrated_airspeed_m_s - _param_vt_arsp_blend.get()) /
+			mc_weight = 1.0f - fabsf(_airspeed_validated->calibrated_airspeed_m_s - getBlendAirspeed()) /
 				    _airspeed_trans_blend_margin;
 			// time based blending when no airspeed sensor is set
 
-		} else if (_param_fw_arsp_mode.get() || !PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)) {
+		} else if (!_param_fw_use_airspd.get() || !PX4_ISFINITE(_airspeed_validated->calibrated_airspeed_m_s)) {
 			mc_weight = 1.0f - _time_since_trans_start / getMinimumFrontTransitionTime();
 			mc_weight = math::constrain(2.0f * mc_weight, 0.0f, 1.0f);
 
 		}
 
 		// ramp up FW_PSP_OFF
-		_v_att_sp->pitch_body = math::radians(_param_fw_psp_off.get()) * (1.0f - mc_weight);
-
-		const Quatf q_sp(Eulerf(_v_att_sp->roll_body, _v_att_sp->pitch_body, _v_att_sp->yaw_body));
+		pitch_body = math::radians(_param_fw_psp_off.get()) * (1.0f - mc_weight);
+		_v_att_sp->thrust_body[0] = _pusher_throttle;
+		const Quatf q_sp(Eulerf(roll_body, pitch_body, yaw_body));
 		q_sp.copyTo(_v_att_sp->q_d);
-
-		// set spoiler and flaps to 0
-		_flaps_setpoint_with_slewrate.update(0.f, _dt);
-		_spoiler_setpoint_with_slewrate.update(0.f, _dt);
 
 	} else if (_vtol_mode == vtol_mode::TRANSITION_TO_MC) {
 
 		if (_v_control_mode->flag_control_climb_rate_enabled) {
 			// control backtransition deceleration using pitch.
-			_v_att_sp->pitch_body = update_and_get_backtransition_pitch_sp();
+			pitch_body = update_and_get_backtransition_pitch_sp();
 		}
 
-		const Quatf q_sp(Eulerf(_v_att_sp->roll_body, _v_att_sp->pitch_body, _v_att_sp->yaw_body));
+		const Quatf q_sp(Eulerf(roll_body, pitch_body, yaw_body));
 		q_sp.copyTo(_v_att_sp->q_d);
 
 		_pusher_throttle = 0.0f;
@@ -278,103 +281,75 @@ void Standard::update_fw_state()
  */
 void Standard::fill_actuator_outputs()
 {
-	auto &mc_in = _actuators_mc_in->control;
-	auto &fw_in = _actuators_fw_in->control;
+	_torque_setpoint_0->timestamp = hrt_absolute_time();
+	_torque_setpoint_0->timestamp_sample = _vehicle_torque_setpoint_virtual_mc->timestamp_sample;
+	_torque_setpoint_0->xyz[0] = 0.f;
+	_torque_setpoint_0->xyz[1] = 0.f;
+	_torque_setpoint_0->xyz[2] = 0.f;
 
-	auto &mc_out = _actuators_out_0->control;
-	auto &fw_out = _actuators_out_1->control;
+	_torque_setpoint_1->timestamp = hrt_absolute_time();
+	_torque_setpoint_1->timestamp_sample = _vehicle_torque_setpoint_virtual_fw->timestamp_sample;
+	_torque_setpoint_1->xyz[0] = 0.f;
+	_torque_setpoint_1->xyz[1] = 0.f;
+	_torque_setpoint_1->xyz[2] = 0.f;
+
+	_thrust_setpoint_0->timestamp = hrt_absolute_time();
+	_thrust_setpoint_0->timestamp_sample = _vehicle_thrust_setpoint_virtual_mc->timestamp_sample;
+	_thrust_setpoint_0->xyz[0] = 0.f;
+	_thrust_setpoint_0->xyz[1] = 0.f;
+	_thrust_setpoint_0->xyz[2] = 0.f;
+
+	_thrust_setpoint_1->timestamp = hrt_absolute_time();
+	_thrust_setpoint_1->timestamp_sample = _vehicle_thrust_setpoint_virtual_fw->timestamp_sample;
+	_thrust_setpoint_1->xyz[0] = 0.f;
+	_thrust_setpoint_1->xyz[1] = 0.f;
+	_thrust_setpoint_1->xyz[2] = 0.f;
 
 	switch (_vtol_mode) {
 	case vtol_mode::MC_MODE:
 
-		// MC out = MC in
-		mc_out[actuator_controls_s::INDEX_ROLL]         = mc_in[actuator_controls_s::INDEX_ROLL];
-		mc_out[actuator_controls_s::INDEX_PITCH]        = mc_in[actuator_controls_s::INDEX_PITCH];
-		mc_out[actuator_controls_s::INDEX_YAW]          = mc_in[actuator_controls_s::INDEX_YAW];
-		mc_out[actuator_controls_s::INDEX_THROTTLE]     = mc_in[actuator_controls_s::INDEX_THROTTLE];
-		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_DOWN;
+		// MC actuators:
+		_torque_setpoint_0->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0];
+		_torque_setpoint_0->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1];
+		_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2];
+		_thrust_setpoint_0->xyz[2] = _vehicle_thrust_setpoint_virtual_mc->xyz[2];
 
-		// FW out = 0, other than roll and pitch depending on elevon lock
-		fw_out[actuator_controls_s::INDEX_ROLL]         = _param_vt_elev_mc_lock.get() ? 0 :
-				fw_in[actuator_controls_s::INDEX_ROLL];
-		fw_out[actuator_controls_s::INDEX_PITCH]        = _param_vt_elev_mc_lock.get() ? 0 :
-				fw_in[actuator_controls_s::INDEX_PITCH];
-		fw_out[actuator_controls_s::INDEX_YAW]          = 0;
-		fw_out[actuator_controls_s::INDEX_THROTTLE]     = _pusher_throttle;
-		fw_out[actuator_controls_s::INDEX_FLAPS]        = _flaps_setpoint_with_slewrate.getState();
-		fw_out[actuator_controls_s::INDEX_SPOILERS]    	= _spoiler_setpoint_with_slewrate.getState();
-		fw_out[actuator_controls_s::INDEX_AIRBRAKES]    = 0.f;
+		// FW actuators:
+		if (!_param_vt_elev_mc_lock.get()) {
+			_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_fw->xyz[0];
+			_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_fw->xyz[1];
+		}
 
+		_thrust_setpoint_0->xyz[0] = _pusher_throttle;
 		break;
 
 	case vtol_mode::TRANSITION_TO_FW:
 
 	// FALLTHROUGH
 	case vtol_mode::TRANSITION_TO_MC:
-		// MC out = MC in (weighted)
-		mc_out[actuator_controls_s::INDEX_ROLL]         = mc_in[actuator_controls_s::INDEX_ROLL]     * _mc_roll_weight;
-		mc_out[actuator_controls_s::INDEX_PITCH]        = mc_in[actuator_controls_s::INDEX_PITCH]    * _mc_pitch_weight;
-		mc_out[actuator_controls_s::INDEX_YAW]          = mc_in[actuator_controls_s::INDEX_YAW]      * _mc_yaw_weight;
-		mc_out[actuator_controls_s::INDEX_THROTTLE]     = mc_in[actuator_controls_s::INDEX_THROTTLE] * _mc_throttle_weight;
-		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_UP;
+		// MC actuators:
+		_torque_setpoint_0->xyz[0] = _vehicle_torque_setpoint_virtual_mc->xyz[0] * _mc_roll_weight;
+		_torque_setpoint_0->xyz[1] = _vehicle_torque_setpoint_virtual_mc->xyz[1] * _mc_pitch_weight;
+		_torque_setpoint_0->xyz[2] = _vehicle_torque_setpoint_virtual_mc->xyz[2] * _mc_yaw_weight;
+		_thrust_setpoint_0->xyz[2] = _vehicle_thrust_setpoint_virtual_mc->xyz[2] * _mc_throttle_weight;
 
-		// FW out = FW in, with VTOL transition controlling throttle and airbrakes
-		fw_out[actuator_controls_s::INDEX_ROLL]         = fw_in[actuator_controls_s::INDEX_ROLL] * (1.f - _mc_roll_weight);
-		fw_out[actuator_controls_s::INDEX_PITCH]        = fw_in[actuator_controls_s::INDEX_PITCH] * (1.f - _mc_pitch_weight);
-		fw_out[actuator_controls_s::INDEX_YAW]          = fw_in[actuator_controls_s::INDEX_YAW] * (1.f - _mc_yaw_weight);
-		fw_out[actuator_controls_s::INDEX_THROTTLE]     = _pusher_throttle;
-		fw_out[actuator_controls_s::INDEX_FLAPS]        = _flaps_setpoint_with_slewrate.getState();
-		fw_out[actuator_controls_s::INDEX_SPOILERS]    	= _spoiler_setpoint_with_slewrate.getState();
+		// FW actuators
+		_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_fw->xyz[0];
+		_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_fw->xyz[1];
+		_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_fw->xyz[2];
+		_thrust_setpoint_0->xyz[0] = _pusher_throttle;
 
 		break;
 
 	case vtol_mode::FW_MODE:
-		// MC out = 0
-		mc_out[actuator_controls_s::INDEX_ROLL]         = 0;
-		mc_out[actuator_controls_s::INDEX_PITCH]        = 0;
-		mc_out[actuator_controls_s::INDEX_YAW]          = 0;
-		mc_out[actuator_controls_s::INDEX_THROTTLE]     = 0;
-		mc_out[actuator_controls_s::INDEX_LANDING_GEAR] = landing_gear_s::GEAR_UP;
 
-		// FW out = FW in
-		fw_out[actuator_controls_s::INDEX_ROLL]         = fw_in[actuator_controls_s::INDEX_ROLL];
-		fw_out[actuator_controls_s::INDEX_PITCH]        = fw_in[actuator_controls_s::INDEX_PITCH];
-		fw_out[actuator_controls_s::INDEX_YAW]          = fw_in[actuator_controls_s::INDEX_YAW];
-		fw_out[actuator_controls_s::INDEX_THROTTLE]     = fw_in[actuator_controls_s::INDEX_THROTTLE];
-		fw_out[actuator_controls_s::INDEX_FLAPS]        = _flaps_setpoint_with_slewrate.getState();
-		fw_out[actuator_controls_s::INDEX_SPOILERS]    	= _spoiler_setpoint_with_slewrate.getState();
-		fw_out[actuator_controls_s::INDEX_AIRBRAKES]    = 0;
+		// FW actuators
+		_torque_setpoint_1->xyz[0] = _vehicle_torque_setpoint_virtual_fw->xyz[0];
+		_torque_setpoint_1->xyz[1] = _vehicle_torque_setpoint_virtual_fw->xyz[1];
+		_torque_setpoint_1->xyz[2] = _vehicle_torque_setpoint_virtual_fw->xyz[2];
+		_thrust_setpoint_0->xyz[0] = _vehicle_thrust_setpoint_virtual_fw->xyz[0];
 		break;
 	}
-
-	_torque_setpoint_0->timestamp = hrt_absolute_time();
-	_torque_setpoint_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
-	_torque_setpoint_0->xyz[0] = mc_out[actuator_controls_s::INDEX_ROLL];
-	_torque_setpoint_0->xyz[1] = mc_out[actuator_controls_s::INDEX_PITCH];
-	_torque_setpoint_0->xyz[2] = mc_out[actuator_controls_s::INDEX_YAW];
-
-	_torque_setpoint_1->timestamp = hrt_absolute_time();
-	_torque_setpoint_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
-	_torque_setpoint_1->xyz[0] = fw_out[actuator_controls_s::INDEX_ROLL];
-	_torque_setpoint_1->xyz[1] = fw_out[actuator_controls_s::INDEX_PITCH];
-	_torque_setpoint_1->xyz[2] = fw_out[actuator_controls_s::INDEX_YAW];
-
-	_thrust_setpoint_0->timestamp = hrt_absolute_time();
-	_thrust_setpoint_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
-	_thrust_setpoint_0->xyz[0] = fw_out[actuator_controls_s::INDEX_THROTTLE];
-	_thrust_setpoint_0->xyz[1] = 0.f;
-	_thrust_setpoint_0->xyz[2] = -mc_out[actuator_controls_s::INDEX_THROTTLE];
-
-	_thrust_setpoint_1->timestamp = hrt_absolute_time();
-	_thrust_setpoint_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
-	_thrust_setpoint_1->xyz[0] = 0.f;
-	_thrust_setpoint_1->xyz[1] = 0.f;
-	_thrust_setpoint_1->xyz[2] = 0.f;
-
-	_actuators_out_0->timestamp_sample = _actuators_mc_in->timestamp_sample;
-	_actuators_out_1->timestamp_sample = _actuators_fw_in->timestamp_sample;
-
-	_actuators_out_0->timestamp = _actuators_out_1->timestamp = hrt_absolute_time();
 }
 
 void

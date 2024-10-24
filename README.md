@@ -63,8 +63,9 @@ Note: This is the source of truth for the active maintainers of PX4 ecosystem.
 | Multirotor | [Matthias Grob](https://github.com/MaEtUgR) |
 | Fixed Wing | [Thomas Stastny](https://github.com/tstastny) |
 | Hybrid VTOL | [Silvan Fuhrer](https://github.com/sfuhrer) |
+| Rover | [Christian Friedrich](https://github.com/chfriedrich98) |
 | Boat | x |
-| Rover | x |
+
 
 See also [maintainers list](https://px4.io/community/maintainers/) (px4.io) and the [contributors list](https://github.com/PX4/PX4-Autopilot/graphs/contributors) (Github). However it may be not up to date.
 
@@ -104,8 +105,9 @@ These boards fully comply with Pixhawk Standard, and are maintained by the PX4-A
 These boards are maintained to be compatible with PX4-Autopilot by the Manufacturers.
 
 * [ARK Electronics ARKV6X](https://docs.px4.io/main/en/flight_controller/arkv6x.html)
-* [Hex Cube Orange](https://docs.px4.io/main/en/flight_controller/cubepilot_cube_orange.html)
-* [Hex Cube Yellow](https://docs.px4.io/main/en/flight_controller/cubepilot_cube_yellow.html)
+* [CubePilot Cube Orange+](https://docs.px4.io/main/en/flight_controller/cubepilot_cube_orangeplus.html)
+* [CubePilot Cube Orange](https://docs.px4.io/main/en/flight_controller/cubepilot_cube_orange.html)
+* [CubePilot Cube Yellow](https://docs.px4.io/main/en/flight_controller/cubepilot_cube_yellow.html)
 * [Holybro Durandal](https://docs.px4.io/main/en/flight_controller/durandal.html)
 * [Airmind MindPX V2.8](http://www.mindpx.net/assets/accessories/UserGuide_MindPX.pdf)
 * [Airmind MindRacer V1.2](http://mindpx.net/assets/accessories/mindracer_user_guide_v1.2.pdf)
@@ -113,7 +115,7 @@ These boards are maintained to be compatible with PX4-Autopilot by the Manufactu
 
 ### Community supported
 
-These boards don't fully comply industry standards, and thus is solely maintained by the PX4 publc community members.
+These boards don't fully comply industry standards, and thus is solely maintained by the PX4 public community members.
 
 ### Experimental
 

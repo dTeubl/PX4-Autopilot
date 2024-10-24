@@ -120,7 +120,7 @@ public:
 	 */
 	MixingOutput(const char *param_prefix, uint8_t max_num_outputs, OutputModuleInterface &interface,
 		     SchedulingPolicy scheduling_policy,
-		     bool support_esc_calibration, bool ramp_up = true);
+		     bool support_esc_calibration, bool ramp_up = true, const uint8_t instance_start = 1);
 
 	~MixingOutput();
 
@@ -179,6 +179,8 @@ public:
 
 	param_t functionParamHandle(int index) const { return _param_handles[index].function; }
 	param_t disarmedParamHandle(int index) const { return _param_handles[index].disarmed; }
+	param_t minParamHandle(int index) const { return _param_handles[index].min; }
+	param_t maxParamHandle(int index) const { return _param_handles[index].max; }
 
 	/**
 	 * Returns the actual failsafe value taking into account the assigned function
@@ -204,6 +206,7 @@ public:
 
 protected:
 	void updateParams() override;
+	uint16_t output_limit_calc_single(int i, float value) const;
 
 private:
 
@@ -218,11 +221,9 @@ private:
 
 	void cleanupFunctions();
 
-	void initParamHandles();
+	void initParamHandles(const uint8_t instance_start);
 
 	void limitAndUpdateOutputs(float outputs[MAX_ACTUATORS], bool has_updates);
-
-	uint16_t output_limit_calc_single(int i, float value) const;
 
 	void output_limit_calc(const bool armed, const int num_channels, const float outputs[MAX_ACTUATORS]);
 
@@ -248,10 +249,9 @@ private:
 
 	enum class OutputLimitState {
 		OFF = 0,
-		INIT,
 		RAMP,
 		ON
-	} _output_state{OutputLimitState::INIT};
+	} _output_state{OutputLimitState::OFF};
 
 	hrt_abstime _output_time_armed{0};
 	const bool _output_ramp_up; ///< if true, motors will ramp up from disarmed to min_output after arming
@@ -288,13 +288,13 @@ private:
 	hrt_abstime _lowrate_schedule_interval{300_ms};
 	ActuatorTest _actuator_test{_function_assignment};
 	uint32_t _reversible_mask{0}; ///< per-output bits. If set, the output is configured to be reversible (motors only)
+	bool _was_all_disabled{false};
 
 	uORB::SubscriptionCallbackWorkItem *_subscription_callback{nullptr}; ///< current scheduling callback
 
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,   ///< multicopter air-mode
-		(ParamFloat<px4::params::MOT_SLEW_MAX>) _param_mot_slew_max,
 		(ParamFloat<px4::params::THR_MDL_FAC>) _param_thr_mdl_fac ///< thrust to motor control signal modelling factor
 	)
 };
