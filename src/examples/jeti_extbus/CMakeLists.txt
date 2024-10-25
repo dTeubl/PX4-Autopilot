@@ -37,3 +37,5 @@ px4_add_module(
 		jeti_extbus.cpp
 	DEPENDS
 	)
+
+px4_add_unit_gtest(SRC JetiTest.cpp LINKLIBS examples__jeti_extbus)
