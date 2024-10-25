@@ -53,7 +53,7 @@
  * 0x28 – Message length (40)
  * 0x06 – Packet ID 0x31 – The data identifier – channel values
  * 0x20 – Length of data blocks (32) - 16 channels x 2B
- * 0x1F82 – Value of the 1st channel (8066)/8000000 = 1,00825ms
+ * 0x1F82 – Value of the 1st channel (8066)/8'000'000 = 1,00825ms
  *
  * 0xE24F - CRC16-CCITT
  *
@@ -73,10 +73,11 @@ class JETIChannelData : public testing::Test {
 };
 
 /** TODO
- * + [ ] Parse out header data to Struct
+ * + [x] Parse out header data to Struct
  * + [ ] Calc CRC
  * + [ ] Validate Msg via CRC
  * + [ ] Get individual channel values
+ * + [ ] Signal problem of channel overreaching - requesting wrong number
  */
 
 namespace JETI {
@@ -87,6 +88,7 @@ struct Header {
 	uint8_t len;
 	uint8_t Packet_ID;
 	uint8_t Data_ID;
+	uint8_t Channels;
 
 	friend bool operator==(Header const &lhs, Header const &rhs);
 	// this Requires CPP-20
@@ -108,6 +110,9 @@ bool operator==(Header const &lhs, Header const &rhs) {
 		return false;
 	}
 	if (lhs.Data_ID != rhs.Data_ID) {
+		return false;
+	}
+	if (lhs.Channels != rhs.Channels) {
 		return false;
 	}
 	return true;
@@ -133,17 +138,38 @@ auto GetHeader(const uint8_t data[], size_t len) -> JETI::Header {
 	head.len = data[2];
 	head.Packet_ID = data[3];
 	head.Data_ID = data[4];
+	head.Channels = data[5] >> 1;
 	return head;
+}
+
+union raw_channel_t {
+	uint16_t data;
+	uint8_t raw[2];
+};
+
+// Introduce a Strong Type here for CH Index
+// Pretest if enough channel is avaiable or not!
+auto GetChannel(const uint8_t data[], const size_t len,
+		const uint8_t idx) -> float {
+	raw_channel_t raw_channel = {.data = 0};
+	if (idx == 0) {
+		raw_channel.raw[0] = data[6];
+		raw_channel.raw[1] = data[7];
+	}
+	return static_cast<float>(raw_channel.data) / 8'000;
 }
 
 } // namespace JETI
 
 TEST_F(JETIChannelData, ParseHeader) {
-	const JETI::Header header = {.H0 = 0x3E,
-				     .H1 = 0x03,
-				     .len = 0x28,
-				     .Packet_ID = 0x06,
-				     .Data_ID = 0x31};
+	const JETI::Header header = {
+	    .H0 = 0x3E,
+	    .H1 = 0x03,
+	    .len = 0x28,
+	    .Packet_ID = 0x06,
+	    .Data_ID = 0x31,
+	    .Channels = 0x10,
+	};
 
 	EXPECT_EQ(header, JETI::GetHeader(raw_data, data_len));
 }
@@ -152,4 +178,10 @@ TEST_F(JETIChannelData, RecognizeHeader) {
 	const auto head = JETI::GetHeader(raw_data, data_len);
 
 	EXPECT_TRUE(JETI::IsChannels(head));
+}
+
+TEST_F(JETIChannelData, CalculateFirstChannelValue) {
+	const auto ch_id{0};
+	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
+	EXPECT_LE(1.00825f - channel, 0.000000001f);
 }
