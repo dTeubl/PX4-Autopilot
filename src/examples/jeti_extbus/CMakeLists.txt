@@ -34,6 +34,6 @@ px4_add_module(
 	MODULE examples__jeti_extbus
 	MAIN jeti_extbus
 	SRCS
-		jeti_extbus.c
+		jeti_extbus.cpp
 	DEPENDS
 	)
