@@ -31,6 +31,7 @@
  *
  ****************************************************************************/
 
+#include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
 
@@ -58,13 +59,12 @@
  *
  */
 
-TEST(JETIStatus, Probe) { EXPECT_FALSE(false); }
-
 class JETIChannelData : public testing::Test {
       protected:
 	JETIChannelData() {}
 
-	uint8_t raw_data[40] = {
+	static const size_t data_len{40u};
+	const uint8_t raw_data[data_len] = {
 	    0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
 	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
 	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
@@ -72,5 +72,84 @@ class JETIChannelData : public testing::Test {
 	};
 };
 
-TEST_F(JETIChannelData, Probe) { EXPECT_EQ(raw_data[0], 0x3E); }
+/** TODO
+ * + [ ] Parse out header data to Struct
+ * + [ ] Calc CRC
+ * + [ ] Validate Msg via CRC
+ * + [ ] Get individual channel values
+ */
 
+namespace JETI {
+
+struct Header {
+	uint8_t H0;
+	uint8_t H1;
+	uint8_t len;
+	uint8_t Packet_ID;
+	uint8_t Data_ID;
+
+	friend bool operator==(Header const &lhs, Header const &rhs);
+	// this Requires CPP-20
+	//  friend bool operator<=>(Header const &lhs, Header const &rhs) =
+	//  default;
+};
+
+bool operator==(Header const &lhs, Header const &rhs) {
+	if (lhs.H0 != rhs.H0) {
+		return false;
+	}
+	if (lhs.H1 != rhs.H1) {
+		return false;
+	}
+	if (lhs.len != rhs.len) {
+		return false;
+	}
+	if (lhs.Packet_ID != rhs.Packet_ID) {
+		return false;
+	}
+	if (lhs.Data_ID != rhs.Data_ID) {
+		return false;
+	}
+	return true;
+}
+
+bool IsChannels(const JETI::Header head) {
+	if (head.H0 != 0x3E) {
+		return false;
+	}
+	if (not(head.H1 == 0x03 || head.H1 == 0x01)) {
+		return false;
+	}
+
+	return (head.Data_ID == 0x31) ? (true) : (false);
+}
+
+auto GetHeader(const uint8_t data[], size_t len) -> JETI::Header {
+	// Checksum check
+	auto head = JETI::Header{};
+
+	head.H0 = data[0];
+	head.H1 = data[1];
+	head.len = data[2];
+	head.Packet_ID = data[3];
+	head.Data_ID = data[4];
+	return head;
+}
+
+} // namespace JETI
+
+TEST_F(JETIChannelData, ParseHeader) {
+	const JETI::Header header = {.H0 = 0x3E,
+				     .H1 = 0x03,
+				     .len = 0x28,
+				     .Packet_ID = 0x06,
+				     .Data_ID = 0x31};
+
+	EXPECT_EQ(header, JETI::GetHeader(raw_data, data_len));
+}
+
+TEST_F(JETIChannelData, RecognizeHeader) {
+	const auto head = JETI::GetHeader(raw_data, data_len);
+
+	EXPECT_TRUE(JETI::IsChannels(head));
+}
