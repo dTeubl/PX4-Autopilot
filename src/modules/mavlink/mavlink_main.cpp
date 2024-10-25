@@ -1447,6 +1447,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("OPEN_DRONE_ID_ARM_STATUS", 1.f);
 		configure_stream_local("ORBIT_EXECUTION_STATUS", 2.0f);
 		configure_stream_local("PING", 0.1f);
+		configure_stream_local("JETI", 10.0f);
 		configure_stream_local("POSITION_TARGET_GLOBAL_INT", 1.0f);
 		configure_stream_local("POSITION_TARGET_LOCAL_NED", 1.5f);
 		configure_stream_local("RAW_RPM", 2.0f);
@@ -1518,6 +1519,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("OPTICAL_FLOW_RAD", 10.0f);
 		configure_stream_local("ORBIT_EXECUTION_STATUS", 5.0f);
 		configure_stream_local("PING", 1.0f);
+		configure_stream_local("JETI", 10.0f);
 		configure_stream_local("POSITION_TARGET_GLOBAL_INT", 10.0f);
 		configure_stream_local("POSITION_TARGET_LOCAL_NED", 10.0f);
 		configure_stream_local("RAW_RPM", 5.0f);
@@ -1590,6 +1592,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("OPTICAL_FLOW_RAD", 1.0f);
 		configure_stream_local("ORBIT_EXECUTION_STATUS", 5.0f);
 		configure_stream_local("PING", 0.1f);
+		configure_stream_local("JETI", 10.0f);
 		configure_stream_local("POSITION_TARGET_GLOBAL_INT", 1.5f);
 		configure_stream_local("POSITION_TARGET_LOCAL_NED", 1.5f);
 		configure_stream_local("RC_CHANNELS", 5.0f);
@@ -1687,6 +1690,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("OPTICAL_FLOW_RAD", 10.0f);
 		configure_stream_local("ORBIT_EXECUTION_STATUS", 5.0f);
 		configure_stream_local("PING", 1.0f);
+		configure_stream_local("JETI", 10.0f);
 		configure_stream_local("POSITION_TARGET_GLOBAL_INT", 10.0f);
 		configure_stream_local("RAW_RPM", 5.0f);
 		configure_stream_local("RC_CHANNELS", 10.0f);
@@ -1780,6 +1784,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("OPTICAL_FLOW_RAD", 1.0f);
 		configure_stream_local("ORBIT_EXECUTION_STATUS", 5.0f);
 		configure_stream_local("PING", 0.1f);
+		configure_stream_local("JETI", 10.0f);
 		configure_stream_local("POSITION_TARGET_GLOBAL_INT", 1.5f);
 		configure_stream_local("POSITION_TARGET_LOCAL_NED", 1.5f);
 		configure_stream_local("RC_CHANNELS", 20.0f);

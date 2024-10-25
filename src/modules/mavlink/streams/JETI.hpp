@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2024 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,18 +30,47 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-/**
- * @file px4_simple_app.c
- * Minimal application example for PX4 autopilot
- *
- * @author Example User <mail@example.com>
- */
 
-#include <px4_platform_common/log.h>
+#ifndef JETI_HPP
+#define JETI_HPP
 
-__EXPORT int jeti_extbus(int argc, char *argv[]);
+class MavlinkStreamJETI : public MavlinkStream {
+      public:
+	static MavlinkStream *new_instance(Mavlink *mavlink) {
+		return new MavlinkStreamJETI(mavlink);
+	}
 
-int jeti_extbus_main(int argc, char *argv[]) {
-	PX4_INFO("Hello Sky Sim!");
-	return OK;
-}
+	static constexpr const char *get_name_static() { return "JETI"; }
+	static constexpr uint16_t get_id_static() {
+		return MAVLINK_MSG_ID_JETI_Status;
+	}
+
+	const char *get_name() const override { return get_name_static(); }
+	uint16_t get_id() override { return get_id_static(); }
+
+	unsigned get_size() override {
+		return MAVLINK_MSG_ID_JETI_Status_LEN +
+		       MAVLINK_NUM_NON_PAYLOAD_BYTES;
+	}
+
+	bool const_rate() override { return true; }
+
+      private:
+	explicit MavlinkStreamJETI(Mavlink *mavlink) : MavlinkStream(mavlink) {}
+
+	uint32_t _sequence{0};
+
+	bool send() override {
+		mavlink_jeti_status_t msg{};
+
+		msg.timestamp = hrt_absolute_time();
+		msg.Status = 1;
+
+		mavlink_msg_jeti_status_send_struct(_mavlink->get_channel(),
+						    &msg);
+
+		return true;
+	}
+};
+
+#endif // JETI_HPP

@@ -264,6 +264,7 @@ set(msg_files
 	WheelEncoders.msg
 	Wind.msg
 	YawEstimatorStatus.msg
+	Jeti.msg
 )
 list(SORT msg_files)
 

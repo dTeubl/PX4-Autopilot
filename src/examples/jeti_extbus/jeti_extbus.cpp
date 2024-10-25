@@ -44,6 +44,7 @@
 #include <px4_platform_common/tasks.h>
 #include <unistd.h>
 
+#include <uORB/topics/jeti.h>
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/uORB.h>
@@ -66,6 +67,11 @@ auto jeti_extbus_main(int argc, char *argv[]) -> int {
 	    {.fd = sensor_sub_fd, .events = POLLIN},
 	};
 
+	// setup buffer for jeti dat
+	struct jeti_s jeti_data;
+	memset(&jeti_data, 0, sizeof(jeti_data));
+	orb_advert_t jeti_pub = orb_advertise(ORB_ID(jeti), &jeti_data);
+
 	for (auto cnt{0}; cnt < 10; ++cnt) {
 		/* wait for sensor update of 1 file descriptor for 1000 ms (1
 		 * second) */
@@ -86,6 +92,9 @@ auto jeti_extbus_main(int argc, char *argv[]) -> int {
 			att.q[2] = raw.accelerometer_m_s2[2];
 
 			orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
+
+			jeti_data.status = 1;
+			orb_publish(ORB_ID(jeti), jeti_pub, &jeti_data);
 		}
 	}
 
