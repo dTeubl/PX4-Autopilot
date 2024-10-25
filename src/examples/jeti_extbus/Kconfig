@@ -1,0 +1,5 @@
+menuconfig EXAMPLES_JETI_EXTBUS
+	bool "jeti_extbus"
+	default y
+	---help---
+		Enable support for JETI EXT BUS app
