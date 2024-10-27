@@ -66,3 +66,5 @@ docker run -it --rm -w "${SRC_DIR}" \
 	--volume=${CCACHE_DIR}:${CCACHE_DIR}:rw \
 	--volume=${SRC_DIR}:${SRC_DIR}:rw \
 	${PX4_DOCKER_REPO} /bin/bash -c "$1 $2 $3"
+
+

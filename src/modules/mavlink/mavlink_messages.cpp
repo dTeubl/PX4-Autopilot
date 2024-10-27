@@ -156,7 +156,7 @@
 #include "streams/UAVIONIX_ADSB_OUT_DYNAMIC.hpp"
 #endif // !CONSTRAINED_FLASH
 
-#include "streams//JETI.hpp"
+#include "streams/JETI.hpp"
 
 // ensure PX4 rotation enum and MAV_SENSOR_ROTATION align
 static_assert(MAV_SENSOR_ROTATION_NONE ==
