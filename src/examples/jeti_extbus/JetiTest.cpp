@@ -96,6 +96,13 @@ struct Header {
 	//  default;
 };
 
+struct CRC {
+	uint8_t crc0;
+	uint8_t crc1;
+
+	friend bool operator==(CRC const &lhs, CRC const &rhs);
+};
+
 bool operator==(Header const &lhs, Header const &rhs) {
 	if (lhs.H0 != rhs.H0) {
 		return false;
@@ -113,6 +120,16 @@ bool operator==(Header const &lhs, Header const &rhs) {
 		return false;
 	}
 	if (lhs.Channels != rhs.Channels) {
+		return false;
+	}
+	return true;
+}
+
+bool operator==(CRC const &lhs, CRC const &rhs){
+	if (lhs.crc0 != rhs.crc0) {
+		return false;
+	}
+	if (lhs.crc1 != rhs.crc1) {
 		return false;
 	}
 	return true;
@@ -142,6 +159,7 @@ auto GetHeader(const uint8_t data[], size_t len) -> JETI::Header {
 	return head;
 }
 
+
 union raw_channel_t {
 	uint16_t data;
 	uint8_t raw[2];
@@ -158,6 +176,43 @@ auto GetChannel(const uint8_t data[], const size_t len,
 	}
 	return static_cast<float>(raw_channel.data) / 8'000;
 }
+
+auto ExtractCrcValues(const uint8_t data[], const size_t len) {
+	auto crc = JETI::CRC{};
+
+	crc.crc0 = data[len-2];
+	crc.crc1 = data[len-1];
+
+	return crc;
+}
+
+uint16_t GetCRC(const uint8_t data[], const size_t len) {
+	JETI::CRC crcExtracted = JETI::ExtractCrcValues(data, len);
+
+	return (crcExtracted.crc1*0x100)^crcExtracted.crc0;
+}
+
+// uint16_t Checksum(const uint8_t data[], const size_t len) {
+// 	for(i=0, i<len, i++){
+// 	}
+// 	return 1;
+// }
+
+// uint16_t crc16_update(const uint8_t crc, uint8_t data)
+// {
+// uint16_t ret_val;
+// data ^= (uint8_t)(crc) & (uint8_t)(0xFF);
+// data ^= data << 4;
+// ret_val = ((((uint16_t)data << 8) | ((crc & 0xFF00) >> 8)) ^ (uint8_t)(data >> 4) ^ ((uint16_t)data << 3));
+// return ret_val;
+// }
+
+// uint16_t get_crc16z(const uint8_t *p, uint16_t len)
+// {
+// uint16_t crc16_data=0;
+// while(len--) { crc16_data=crc16_update(crc16_data, p[0]); p++; }
+// return(crc16_data);
+// }
 
 } // namespace JETI
 
@@ -185,3 +240,22 @@ TEST_F(JETIChannelData, CalculateFirstChannelValue) {
 	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
 	EXPECT_LE(1.00825f - channel, 0.000000001f);
 }
+
+TEST_F(JETIChannelData, ExtractCrcValues) {
+	const JETI::CRC crc = {
+		.crc0 = 0x4F,
+		.crc1 = 0xE2,
+	};
+
+	EXPECT_EQ(crc, JETI::ExtractCrcValues(raw_data, data_len));
+}
+
+TEST_F(JETIChannelData, GetCRC) {
+
+	EXPECT_EQ(0xE24F, JETI::GetCRC(raw_data, data_len));
+}
+
+// TEST_F(JETIChannelData, GetCRCwithChecksum) {
+
+// 	EXPECT_EQ(0xE24F, JETI::Checksum());
+// }
