@@ -193,25 +193,20 @@ uint16_t GetCRC(const uint8_t data[], const size_t len) {
 	return (crcExtracted.crc1*0x100)^crcExtracted.crc0;
 }
 
-uint64_t crc16_update_operation8(uint16_t crc, uint16_t data){
-	return ((uint32_t)(data << 8) | ((crc & 0xFF00) >> 8)) ^ (uint8_t)(data >> 4) ^ (data << 3);
+uint16_t crc16_update( uint16_t crc, uint8_t data ) {
+	uint16_t ret_val;
+	data ^= (uint8_t)(crc) & (uint8_t)(0xFF);
+	data ^= data << 4;
+	ret_val = ((uint16_t)(data << 8) | ((crc & 0xFF00) >> 8)) ^ (uint8_t)(data >> 4) ^ ((uint16_t)data << 3);
+	return ret_val;
 }
 
-uint64_t crc16_update( uint64_t crc, uint16_t data )  // called crc_ccitt_update before
-{
-uint64_t ret_val;
-data ^= (uint8_t)(crc) & (uint8_t)(0xFF);
-data = (data ^ (data << 4));
-ret_val = ((uint32_t)(data << 8) | ((crc & 0xFF00) >> 8)) ^ (uint8_t)(data >> 4) ^ (data << 3);
-return ret_val;
+uint16_t get_crc16z(const uint8_t *p, uint16_t len) {
+	uint16_t crc16_data=0;
+	while(len-- > 2) {crc16_data=crc16_update(crc16_data,p[0]); p++;}
+	return(crc16_data);
 }
 
-uint64_t get_crc16z(const uint8_t *p, uint16_t len)
-{
-uint64_t crc16_data=0;
-while(len--) { crc16_data=crc16_update(crc16_data, p[0]); p++; }
-return(crc16_data);
-}
 
 } // namespace JETI
 
@@ -254,16 +249,17 @@ TEST_F(JETIChannelData, GetCRC) {
 	EXPECT_EQ(0xE24F, JETI::GetCRC(raw_data, data_len));
 }
 
-TEST_F(JETIChannelData, ChecksumCheckOperation) {
-	EXPECT_EQ(0x03C0CD, JETI::crc16_update_operation8(0x00, 0x3DE));
-}
-
 TEST_F(JETIChannelData, GetCRC16Update) {
 
- 	EXPECT_EQ(0x03C0CD, JETI::crc16_update(0x00, 0x3E));
+ 	EXPECT_EQ(0xD8FD, JETI::crc16_update(0x00, 0x3E));
 }
 
 TEST_F(JETIChannelData, GetCRCwithChecksum) {
 
  	EXPECT_EQ(0xE24F, JETI::get_crc16z(data_pointer, data_len));
+}
+
+TEST_F(JETIChannelData, ValidateChecksum) {
+
+ 	EXPECT_EQ(JETI::GetCRC(raw_data, data_len), JETI::get_crc16z(data_pointer, data_len));
 }
