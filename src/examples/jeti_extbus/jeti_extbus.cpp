@@ -49,6 +49,8 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/uORB.h>
 
+#include "extbus.h"
+
 extern "C" __EXPORT int jeti_extbus_main(int argc, char *argv[]);
 
 auto jeti_extbus_main(int argc, char *argv[]) -> int {
@@ -71,6 +73,8 @@ auto jeti_extbus_main(int argc, char *argv[]) -> int {
 	struct jeti_s jeti_data;
 	memset(&jeti_data, 0, sizeof(jeti_data));
 	orb_advert_t jeti_pub = orb_advertise(ORB_ID(jeti), &jeti_data);
+
+	[[maybe_unused]]auto head = JETI::Header{};
 
 	for (auto cnt{0}; cnt < 10; ++cnt) {
 		/* wait for sensor update of 1 file descriptor for 1000 ms (1
