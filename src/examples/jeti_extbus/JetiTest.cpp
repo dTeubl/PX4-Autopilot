@@ -34,6 +34,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
+#include <iostream>
+#include <vector>
 
 /**
  * Basic unit tests to drive the core functionality
@@ -51,7 +53,8 @@
  *
  * 0x3E 0x03 – Packet header that forbids answering
  * 0x28 – Message length (40)
- * 0x06 – Packet ID 0x31 – The data identifier – channel values
+ * 0x06 – Packet ID
+ * 0x31 – The data identifier – channel values
  * 0x20 – Length of data blocks (32) - 16 channels x 2B
  * 0x1F82 – Value of the 1st channel (8066)/8'000'000 = 1,00825ms
  *
@@ -174,8 +177,12 @@ auto GetChannel(const uint8_t data[], const size_t len,
 	if (idx == 0) {
 		raw_channel.raw[0] = data[6];
 		raw_channel.raw[1] = data[7];
+	}else{                                                     //l.178-181 07.01.2025
+		raw_channel.raw[0] = data[6+2*idx];
+		raw_channel.raw[1] = data[7+2*idx];
 	}
-	return static_cast<float>(raw_channel.data) / 8'000;
+	return static_cast<float>((raw_channel.raw[1]*0x100)^raw_channel.raw[0]) / 8'000;
+	// return static_cast<float>(raw_channel.data) / 8'000;
 }
 
 auto ExtractCrcValues(const uint8_t data[], const size_t len) {
@@ -201,12 +208,36 @@ uint16_t crc16_update( uint16_t crc, uint8_t data ) {
 	return ret_val;
 }
 
-uint16_t get_crc16z(const uint8_t *p, uint16_t len) {
+uint16_t Get_crc16z(const uint8_t *p, uint16_t len) {
 	uint16_t crc16_data=0;
 	while(len-- > 2) {crc16_data=crc16_update(crc16_data,p[0]); p++;}
 	return(crc16_data);
 }
 
+bool ValidateMsg(const uint8_t *p, const uint8_t data[], const size_t len){
+	if(Get_crc16z(p, len) == GetCRC(data, len)){
+		return true;
+	}
+	return false;
+}
+
+std::vector<float> GetChannelValues(const uint8_t data[], const size_t len) {
+	const JETI::Header header = GetHeader(data, len);
+	int iteration = header.Channels;
+	std::vector<float> ChannelValues(iteration);
+	for (int i = 0; i < iteration; i++) {
+		ChannelValues[i] = GetChannel(data,len,i);
+		}
+        return ChannelValues;
+}
+
+bool CheckChannelOverreach(int askedChannels, const uint8_t data[], const size_t len){
+	const JETI::Header header = GetHeader(data, len);
+	if(askedChannels > header.Channels){
+		return true;
+	}
+	return false;
+}
 
 } // namespace JETI
 
@@ -220,7 +251,11 @@ TEST_F(JETIChannelData, ParseHeader) {
 	    .Channels = 0x10,
 	};
 
+	const JETI::Header testHeader = JETI::GetHeader(raw_data, data_len);
+
 	EXPECT_EQ(header, JETI::GetHeader(raw_data, data_len));
+	EXPECT_EQ(header, testHeader);
+	EXPECT_EQ(0x10, testHeader.Channels);
 }
 
 TEST_F(JETIChannelData, RecognizeHeader) {
@@ -231,6 +266,12 @@ TEST_F(JETIChannelData, RecognizeHeader) {
 
 TEST_F(JETIChannelData, CalculateFirstChannelValue) {
 	const auto ch_id{0};
+	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
+	EXPECT_LE(1.00825f - channel, 0.000000001f);
+}
+
+TEST_F(JETIChannelData, CalculateSecondChannelValue) {
+	const auto ch_id{1};
 	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
 	EXPECT_LE(1.00825f - channel, 0.000000001f);
 }
@@ -256,10 +297,38 @@ TEST_F(JETIChannelData, GetCRC16Update) {
 
 TEST_F(JETIChannelData, GetCRCwithChecksum) {
 
- 	EXPECT_EQ(0xE24F, JETI::get_crc16z(data_pointer, data_len));
+ 	EXPECT_EQ(0xE24F, JETI::Get_crc16z(data_pointer, data_len));
 }
 
 TEST_F(JETIChannelData, ValidateChecksum) {
 
- 	EXPECT_EQ(JETI::GetCRC(raw_data, data_len), JETI::get_crc16z(data_pointer, data_len));
+ 	EXPECT_EQ(true, JETI::ValidateMsg(data_pointer, raw_data, data_len));
+}
+
+TEST_F(JETIChannelData, GetFirstChannelValue) {
+
+ 	// EXPECT_EQ(JETI::GetChannel(raw_data, data_len, 0), JETI::getChannelValues(raw_data, data_len));
+	// EXPECT_EQ(1.00825f, JETI::getChannelValues(raw_data, data_len));
+	std::vector<float> p = JETI::GetChannelValues(raw_data,data_len);
+	EXPECT_EQ(1.00825f, p[0]);
+}
+
+TEST_F(JETIChannelData, GetSecondChannelValue) {
+
+	std::vector<float> p = JETI::GetChannelValues(raw_data,data_len);
+	EXPECT_EQ(1.00825f, p[1]);
+}
+
+TEST_F(JETIChannelData, GetLastChannelValue) {
+
+	std::vector<float> p = JETI::GetChannelValues(raw_data,data_len);
+	EXPECT_EQ(1.00825f, p[15]);
+}
+
+TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
+
+	EXPECT_EQ(false, JETI::CheckChannelOverreach(5,raw_data,data_len));
+	EXPECT_EQ(false, JETI::CheckChannelOverreach(16,raw_data,data_len));
+	EXPECT_EQ(true, JETI::CheckChannelOverreach(28,raw_data,data_len));
+
 }
