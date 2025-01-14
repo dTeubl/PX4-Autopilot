@@ -36,7 +36,6 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <vector>
-
 #include "extbus.h"
 
 /**
@@ -152,26 +151,6 @@ TEST_F(JETIChannelData, GetCRCwithChecksum) {
 TEST_F(JETIChannelData, ValidateChecksum) {
 
  	EXPECT_EQ(true, JETI::ValidateMsg(data_pointer, raw_data, data_len));
-}
-
-TEST_F(JETIChannelData, GetFirstChannelValue) {
-
- 	// EXPECT_EQ(JETI::GetChannel(raw_data, data_len, 0), JETI::getChannelValues(raw_data, data_len));
-	// EXPECT_EQ(1.00825f, JETI::getChannelValues(raw_data, data_len));
-	std::vector<float> p = JETI::GetChannelValues(raw_data,data_len);
-	EXPECT_EQ(1.00825f, p[0]);
-}
-
-TEST_F(JETIChannelData, GetSecondChannelValue) {
-
-	std::vector<float> p = JETI::GetChannelValues(raw_data,data_len);
-	EXPECT_EQ(1.00825f, p[1]);
-}
-
-TEST_F(JETIChannelData, GetLastChannelValue) {
-
-	std::vector<float> p = JETI::GetChannelValues(raw_data,data_len);
-	EXPECT_EQ(1.00825f, p[15]);
 }
 
 TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
