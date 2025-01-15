@@ -34,7 +34,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include "extbus.h"
+#include "jeti.h"
 
 /**
  * A sample msg from data sheet, page 6.

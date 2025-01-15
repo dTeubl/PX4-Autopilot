@@ -15,6 +15,7 @@
 #include <lib/rc/sumd.h>
 #include <lib/rc/crsf.h>
 #include <lib/rc/ghst.hpp>
+#include <lib/rc/jeti.h>
 
 #if defined(CONFIG_ARCH_BOARD_PX4_SITL)
 #define TEST_DATA_PATH "./test_data/"
@@ -40,6 +41,8 @@ private:
 	bool sbus2Test();
 	bool st24Test();
 	bool sumdTest();
+
+	bool jetiTestParseHeader();
 };
 
 bool RCTest::run_tests()
@@ -53,6 +56,8 @@ bool RCTest::run_tests()
 	ut_run_test(sbus2Test);
 	ut_run_test(st24Test);
 	ut_run_test(sumdTest);
+
+	ut_run_test(jetiTestParseHeader);
 
 	return (_tests_failed == 0);
 }
@@ -518,6 +523,45 @@ bool RCTest::sumdTest()
 	ut_test(ret == EOF);
 
 	return true;
+}
+
+bool RCTest::jetiTestParseHeader(){
+
+	static const size_t data_len{40u};
+	const uint8_t raw_data[data_len] = {
+	    0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
+	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x4F, 0xE2,
+	};
+	[[maybe_unused]]const uint8_t* data_pointer = raw_data;
+
+	const JETI::Header header = {
+	    .H0 = 0x3E,
+	    .H1 = 0x03,
+	    .len = 0x28,
+	    .Packet_ID = 0x06,
+	    .Data_ID = 0x31,
+	    .Channels = 0x10,
+	};
+
+	const JETI::Header testHeader = JETI::GetHeader(raw_data, data_len);
+
+
+	if(JETI::GetHeader(raw_data, data_len) == header){
+	     if(testHeader == header){
+		if(0x10 == testHeader.Channels){
+			return true;
+		}
+	     }
+	}
+
+	return false;
+
+}
+
+bool RCTest::jetiTestParseHeader(){
+
 }
 
 ut_declare_test_c(rc_tests_main, RCTest)

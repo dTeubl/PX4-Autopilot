@@ -39,6 +39,7 @@ add_library(rc
 	sbus.cpp
 	dsm.cpp
 	common_rc.cpp
+	jeti.cpp
 )
 target_compile_options(rc
 	PRIVATE
