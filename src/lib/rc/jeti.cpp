@@ -66,24 +66,24 @@
 
 bool JETI::operator==(Header const &lhs, Header const &rhs) {
         if (lhs.H0 != rhs.H0) {
-		return false;
-	}
-	if (lhs.H1 != rhs.H1) {
-		return false;
-	}
-	if (lhs.len != rhs.len) {
-		return false;
-	}
-	if (lhs.Packet_ID != rhs.Packet_ID) {
-		return false;
-	}
-	if (lhs.Data_ID != rhs.Data_ID) {
-		return false;
-	}
-	if (lhs.Channels != rhs.Channels) {
-		return false;
-	}
-	return true;
+                return false;
+        }
+        if (lhs.H1 != rhs.H1) {
+                return false;
+        }
+        if (lhs.len != rhs.len) {
+                return false;
+        }
+        if (lhs.Packet_ID != rhs.Packet_ID) {
+                return false;
+        }
+        if (lhs.Data_ID != rhs.Data_ID) {
+                return false;
+        }
+        if (lhs.Channels != rhs.Channels) {
+                return false;
+        }
+        return true;
 }
 
 bool JETI::operator==(CRC const &lhs, CRC const &rhs){
@@ -107,16 +107,16 @@ bool JETI::IsChannels(const JETI::Header head) {
 }
 
 auto JETI::GetHeader(const uint8_t data[], size_t len) -> JETI::Header {
-	// Checksum check
-	auto head = JETI::Header{};
+        // Checksum check
+        auto head = JETI::Header{};
 
-	head.H0 = data[0];
-	head.H1 = data[1];
-	head.len = data[2];
-	head.Packet_ID = data[3];
-	head.Data_ID = data[4];
-	head.Channels = data[5] >> 1;
-	return head;
+        head.H0 = data[0];
+        head.H1 = data[1];
+        head.len = data[2];
+        head.Packet_ID = data[3];
+        head.Data_ID = data[4];
+        head.Channels = data[5] >> 1;
+        return head;
 }
 
 bool JETI::CheckChannelOverreach(int askedChannels, const uint8_t data[], const size_t len){
@@ -130,17 +130,17 @@ bool JETI::CheckChannelOverreach(int askedChannels, const uint8_t data[], const 
 // Introduce a Strong Type here for CH Index
 // Pretest if enough channel is avaiable or not!
 auto JETI::GetChannel(const uint8_t data[], const size_t len,
-		const uint8_t idx) -> float {
-	raw_channel_t raw_channel = {.data = 0};
-	if (idx == 0) {                                                                  //l.75-81 could be merged
-		raw_channel.raw[0] = data[6];
-		raw_channel.raw[1] = data[7];
-	}else{
-		raw_channel.raw[0] = data[6+2*idx];
-		raw_channel.raw[1] = data[7+2*idx];
-	}
-	return static_cast<float>((raw_channel.raw[1]*0x100)^raw_channel.raw[0]) / 8'000;
-	// return static_cast<float>(raw_channel.data) / 8'000;
+                const uint8_t idx) -> float {
+        raw_channel_t raw_channel = {.data = 0};
+        if (idx == 0) {                                                                  //l.75-81 could be merged
+                raw_channel.raw[0] = data[6];
+                raw_channel.raw[1] = data[7];
+        }else{
+                raw_channel.raw[0] = data[6+2*idx];
+                raw_channel.raw[1] = data[7+2*idx];
+        }
+        return static_cast<float>((raw_channel.raw[1]*0x100)^raw_channel.raw[0]) / 8'000;
+        // return static_cast<float>(raw_channel.data) / 8'000;
 }
 
 // Obtains CRC using the data of the data package
@@ -172,9 +172,9 @@ uint16_t JETI::crc16_update( uint16_t crc, uint8_t data ) {
 }
 
 bool JETI::ValidateMsg(const uint8_t *p, const uint8_t data[], const size_t len){
-	if(Get_crc16z(p, len) == GetCRC(data, len)){
-		return true;
-	}
-	return false;
+        if(Get_crc16z(p, len) == GetCRC(data, len)){
+                return true;
+        }
+        return false;
 }
 
