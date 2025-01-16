@@ -43,6 +43,16 @@ private:
 	bool sumdTest();
 
 	bool jetiTestParseHeader();
+	bool jetiTestRecognizeHeader();
+	bool jetiTestCalculateFirstChannelValue();
+	bool jetiTestCalculateSecondChannelValue();
+	bool jetiTestExtractCrcValues();
+	bool jetiTestGetCRC();
+	bool jetiTestGetCRC16Update();
+	bool jetiTestGetCRCwithChecksum();
+	bool jetiTestValidateChecksum();
+	bool jetiTestCheckChannelOverreach();
+
 };
 
 bool RCTest::run_tests()
@@ -58,6 +68,15 @@ bool RCTest::run_tests()
 	ut_run_test(sumdTest);
 
 	ut_run_test(jetiTestParseHeader);
+	ut_run_test(jetiTestRecognizeHeader);
+	ut_run_test(jetiTestCalculateFirstChannelValue);
+	ut_run_test(jetiTestCalculateSecondChannelValue);
+	ut_run_test(jetiTestExtractCrcValues);
+	ut_run_test(jetiTestGetCRC);
+	ut_run_test(jetiTestGetCRC16Update);
+	ut_run_test(jetiTestGetCRCwithChecksum);
+	ut_run_test(jetiTestValidateChecksum);
+	ut_run_test(jetiTestCheckChannelOverreach);
 
 	return (_tests_failed == 0);
 }
@@ -525,16 +544,17 @@ bool RCTest::sumdTest()
 	return true;
 }
 
-bool RCTest::jetiTestParseHeader(){
 
-	static const size_t data_len{40u};
-	const uint8_t raw_data[data_len] = {
-	    0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
-	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
-	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
-	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x4F, 0xE2,
-	};
-	[[maybe_unused]]const uint8_t* data_pointer = raw_data;
+static const size_t data_len{40u};
+const uint8_t raw_data[data_len] = {
+	0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
+        0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+	0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+	0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x4F, 0xE2,
+};
+[[maybe_unused]]const uint8_t* data_pointer = raw_data;
+
+bool RCTest::jetiTestParseHeader(){
 
 	const JETI::Header header = {
 	    .H0 = 0x3E,
@@ -560,8 +580,82 @@ bool RCTest::jetiTestParseHeader(){
 
 }
 
-bool RCTest::jetiTestParseHeader(){
+bool RCTest::jetiTestRecognizeHeader(){
+	const auto head = JETI::GetHeader(raw_data, data_len);
+	if(JETI::IsChannels(head) == true){
+		return true;
+	}
+	return false;
+}
 
+bool RCTest::jetiTestCalculateFirstChannelValue(){
+	const auto ch_id{0};
+	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
+	channel = 1.00825f - channel;
+	if(channel <= 0.000000001f){
+		return true;
+	}
+	return false;
+}
+
+bool RCTest::jetiTestCalculateSecondChannelValue(){
+	const auto ch_id{1};
+	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
+	channel = 1.00825f - channel;
+	if(channel <= 0.000000001f){
+		return true;
+	}
+	return false;
+}
+
+bool RCTest::jetiTestExtractCrcValues(){
+	const JETI::CRC crc = {
+		.crc0 = 0x4F,
+		.crc1 = 0xE2,
+	};
+	if(JETI::ExtractCrcValues(raw_data, data_len) == crc){
+		return true;
+	}
+	return false;
+}
+
+bool RCTest::jetiTestGetCRC(){
+	if(JETI::GetCRC(raw_data, data_len) == 0xE24F){
+		return true;
+	}
+	return false;
+}
+
+bool RCTest::jetiTestGetCRC16Update(){
+	if(JETI::crc16_update(0x00, 0x3E) == 0xD8FD){
+		return true;
+	}
+	return false;
+}
+
+bool RCTest::jetiTestGetCRCwithChecksum(){
+	if(JETI::Get_crc16z(data_pointer, data_len) == 0xE24F){
+		return true;
+	}
+	return false;
+}
+
+bool RCTest::jetiTestValidateChecksum(){
+	if(JETI::ValidateMsg(data_pointer, raw_data, data_len) == true){
+		return true;
+	}
+	return false;
+}
+
+bool RCTest::jetiTestCheckChannelOverreach(){
+	if(JETI::CheckChannelOverreach(5, raw_data, data_len) == false){
+		if(JETI::CheckChannelOverreach(16, raw_data, data_len) == false){
+			if(JETI::CheckChannelOverreach(28, raw_data, data_len) == true){
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 ut_declare_test_c(rc_tests_main, RCTest)
