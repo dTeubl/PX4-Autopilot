@@ -37,6 +37,7 @@
 #include <iostream>
 #include "extbus.h"
 
+
 /**
  * Basic unit tests to drive the core functionality
  * of the JETI ext protokol reception side
@@ -86,7 +87,58 @@ class JETIChannelData : public testing::Test {
 
 namespace JETI {
 
+int CheckHeaderByte1(uint8_t byte) {
+    if (byte == 0x3E) {
+	return 1;
+    }
+    return 0;
+}
+
+int CheckHeaderByte2(uint8_t byte) {
+    if (byte == 0x03) {
+	return 2;
+    }
+    return 0;
+}
+
+int jetiDecode(uint8_t byte, enum JETI_DECODE_STATE decode_state) {
+
+    int ret = 0;
+
+    switch(decode_state) {
+        case JETI_DECODE_STATE_UNSYNCED:
+            ret = CheckHeaderByte1(byte);
+	    break;
+
+        case JETI_DECODE_STATE_GOT_HEADER_BYTE_1:
+            ret = CheckHeaderByte2(byte);
+	    break;
+
+	case JETI_DECODE_STATE_GOT_HEADER_BYTE_2:
+	    decode_state = JETI_DECODE_STATE_GOT_LEN;
+	    ret = (int)byte;
+	    break;
+
+	case JETI_DECODE_STATE_GOT_LEN:
+	    decode_state = JETI_DECODE_STATE_GOT_ID;
+	    ret = (int)byte;
+	    break;
+
+	case JETI_DECODE_STATE_GOT_ID:
+            decode_state = JETI_DECODE_STATE_GOT_DATA_ID;
+	    ret = (int)byte;
+	    break;
+
+        default:
+            ret = 0;
+	    break;
+    }
+
+    return ret; // Return a value indicating successful processing
+}
+
 } // namespace JETI
+
 
 TEST_F(JETIChannelData, ParseHeader) {
         const JETI::Header header = {
@@ -158,4 +210,11 @@ TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
         EXPECT_FALSE(JETI::CheckChannelOverreach(16,raw_data,data_len));
         EXPECT_TRUE(JETI::CheckChannelOverreach(28,raw_data,data_len));
 
+}
+
+TEST_F(JETIChannelData, jetiDecode) {
+	EXPECT_EQ(1, JETI::jetiDecode(0x3E, JETI::JETI_DECODE_STATE_UNSYNCED));
+	EXPECT_EQ(2, JETI::jetiDecode(0x03, JETI::JETI_DECODE_STATE_GOT_HEADER_BYTE_1));
+	EXPECT_EQ(40, JETI::jetiDecode(0x28, JETI::JETI_DECODE_STATE_GOT_HEADER_BYTE_2));
+        EXPECT_EQ(6, JETI::jetiDecode(0x06, JETI::JETI_DECODE_STATE_GOT_LEN));
 }
