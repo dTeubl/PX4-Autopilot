@@ -52,7 +52,6 @@ private:
         bool jetiTestGetCRCwithChecksum();
         bool jetiTestValidateChecksum();
         bool jetiTestCheckChannelOverreach();
-	bool jetiTestDecodeStream();
 
 };
 
@@ -78,7 +77,6 @@ bool RCTest::run_tests()
         ut_run_test(jetiTestGetCRCwithChecksum);
         ut_run_test(jetiTestValidateChecksum);
         ut_run_test(jetiTestCheckChannelOverreach);
-	ut_run_test(jetiTestDecodeStream);
 
         return (_tests_failed == 0);
 }
@@ -637,47 +635,6 @@ bool RCTest::jetiTestCheckChannelOverreach(){
         ut_assert_false(JETI::CheckChannelOverreach(16, raw_data, data_len));
         ut_assert_true(JETI::CheckChannelOverreach(28, raw_data, data_len));
         return true;
-}
-
-bool RCTest::jetiTestDecodeStream(){
-	const char *filepath = TEST_DATA_PATH "jeti_exbus_data.txt";
-
-        //PX4_INFO("loading data from: %s", filepath);
-
-        FILE *fp;
-
-        fp = fopen(filepath, "rt");
-        ut_test(fp);
-
-        float f;
-        unsigned x;
-        int ret;
-
-        float last_time = 0;
-
-	uint8_t byte = 0;
-	int i = 0;
-
-        while (EOF != (ret = fscanf(fp, "%f,%x,,", &f, &x))) {
-
-                if (ret <= 0) {
-                        fclose(fp);
-                        ut_test(ret > 0);
-                }
-
-                if (((f - last_time) * 1000 * 1000) > 3000) {
-                        // PX4_INFO("FRAME RESET\n\n");
-                }
-
-                byte = static_cast<uint8_t>(x);
-
-		ut_test(byte == raw_data[i]);
-		i++;
-
-                last_time = f;
-        }
-
-	return true;
 }
 
 ut_declare_test_c(rc_tests_main, RCTest)

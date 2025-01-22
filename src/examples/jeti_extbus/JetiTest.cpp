@@ -87,18 +87,13 @@ class JETIChannelData : public testing::Test {
 
 namespace JETI {
 
-int CheckHeaderByte1(uint8_t byte) {
-    if (byte == 0x3E) {
-	return 1;
-    }
-    return 0;
-}
 
-int CheckHeaderByte2(uint8_t byte) {
-    if (byte == 0x03) {
-	return 2;
-    }
-    return 0;
+uint8_t* createDataArray(int size) {
+    uint8_t* arr = new uint8_t[size];
+    arr[0] = 0x3E;
+    arr[1] = 0x03;
+    arr[2] = (uint8_t)size;
+    return arr;
 }
 
 int jetiDecode(uint8_t byte, enum JETI_DECODE_STATE decode_state) {
@@ -107,11 +102,19 @@ int jetiDecode(uint8_t byte, enum JETI_DECODE_STATE decode_state) {
 
     switch(decode_state) {
         case JETI_DECODE_STATE_UNSYNCED:
-            ret = CheckHeaderByte1(byte);
+            if (byte == 0x3E) {
+	        decode_state = JETI_DECODE_STATE_GOT_HEADER_BYTE_1;
+	        return 1;
+            }
+            return 0;
 	    break;
 
         case JETI_DECODE_STATE_GOT_HEADER_BYTE_1:
-            ret = CheckHeaderByte2(byte);
+            if (byte == 0x03) {
+		decode_state = JETI_DECODE_STATE_GOT_HEADER_BYTE_2;
+	        return 2;
+            }
+            return 0;
 	    break;
 
 	case JETI_DECODE_STATE_GOT_HEADER_BYTE_2:
@@ -129,12 +132,35 @@ int jetiDecode(uint8_t byte, enum JETI_DECODE_STATE decode_state) {
 	    ret = (int)byte;
 	    break;
 
+	case JETI_DECODE_STATE_GOT_DATA_ID:
+	    decode_state = JETI_DECODE_STATE_GOT_DATA_LEN;
+	    ret = (int)byte;
+	    break;
+
         default:
             ret = 0;
 	    break;
     }
 
     return ret; // Return a value indicating successful processing
+}
+
+uint8_t* recreateData(JETI::Header header, JETI::CRC crc) {
+    uint8_t* arr = new uint8_t[(int)header.len];
+    arr[0] = header.H0;
+    arr[1] = header.H1;
+    arr[2] = header.len;
+    arr[3] = header.Packet_ID;
+    arr[4] = header.Data_ID;
+
+    for (int i = 0; i < ((int)header.Channels*2); i++) {
+	//fill array with correct channel value
+    }
+
+    arr[(int)header.len-2] = crc.crc0;
+    arr[(int)header.len-1] = crc.crc1;
+
+    return arr;
 }
 
 } // namespace JETI
@@ -218,3 +244,4 @@ TEST_F(JETIChannelData, jetiDecode) {
 	EXPECT_EQ(40, JETI::jetiDecode(0x28, JETI::JETI_DECODE_STATE_GOT_HEADER_BYTE_2));
         EXPECT_EQ(6, JETI::jetiDecode(0x06, JETI::JETI_DECODE_STATE_GOT_LEN));
 }
+

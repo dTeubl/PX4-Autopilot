@@ -62,6 +62,20 @@ union raw_channel_t {
         uint8_t raw[2];
 };
 
+enum JETI_DECODE_STATE {
+	JETI_DECODE_STATE_UNSYNCED = 0,
+	JETI_DECODE_STATE_GOT_HEADER_BYTE_1,
+        JETI_DECODE_STATE_GOT_HEADER_BYTE_2,
+	JETI_DECODE_STATE_GOT_LEN,
+	JETI_DECODE_STATE_GOT_ID,
+	JETI_DECODE_STATE_GOT_DATA_ID,
+	JETI_DECODE_STATE_GOT_DATA_LEN,
+	JETI_DECODE_STATE_GOT_CRC16_BYTE_1,
+	JETI_DECODE_STATE_GOT_CRC16_BYTE_2,
+};
+
+[[maybe_unused]]static enum JETI_DECODE_STATE _decode_state = JETI_DECODE_STATE_UNSYNCED;
+
 bool operator==(Header const &lhs, Header const &rhs);
 
 bool operator==(CRC const &lhs, CRC const &rhs);
@@ -83,4 +97,6 @@ uint16_t Get_crc16z(const uint8_t *p, uint16_t len);
 uint16_t crc16_update( uint16_t crc, uint8_t data );
 
 bool ValidateMsg(const uint8_t *p, const uint8_t data[], const size_t len);
+
+int jetiDecode(uint8_t byte);
 }
