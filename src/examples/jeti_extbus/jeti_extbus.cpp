@@ -47,6 +47,7 @@
 #include <uORB/topics/jeti.h>
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/jeti_channel_data.h>
 #include <uORB/uORB.h>
 
 #include "extbus.h"
@@ -54,54 +55,56 @@
 extern "C" __EXPORT int jeti_extbus_main(int argc, char *argv[]);
 
 auto jeti_extbus_main(int argc, char *argv[]) -> int {
-	PX4_INFO("Hello Sky Sim!");
+        PX4_INFO("Hello Sky Sim!");
 
-	int sensor_sub_fd = orb_subscribe(ORB_ID(sensor_combined));
+        int sensor_sub_fd = orb_subscribe(ORB_ID(sensor_combined));
 
-	orb_set_interval(sensor_sub_fd, 200);
+        orb_set_interval(sensor_sub_fd, 200);
 
-	/* advertise attitude topic */
-	struct vehicle_attitude_s att;
-	memset(&att, 0, sizeof(att));
-	orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude), &att);
+        /* advertise attitude topic */
+        struct vehicle_attitude_s att;
+        memset(&att, 0, sizeof(att));
+        orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude), &att);
 
-	px4_pollfd_struct_t fds[] = {
-	    {.fd = sensor_sub_fd, .events = POLLIN},
-	};
+        px4_pollfd_struct_t fds[] = {
+            {.fd = sensor_sub_fd, .events = POLLIN},
+        };
 
-	// setup buffer for jeti dat
-	struct jeti_s jeti_data;
-	memset(&jeti_data, 0, sizeof(jeti_data));
-	orb_advert_t jeti_pub = orb_advertise(ORB_ID(jeti), &jeti_data);
+        // setup buffer for jeti dat
+        struct jeti_s jeti_data;
+        memset(&jeti_data, 0, sizeof(jeti_data));
+        orb_advert_t jeti_pub = orb_advertise(ORB_ID(jeti), &jeti_data);
 
-	[[maybe_unused]]auto head = JETI::Header{};
+        [[maybe_unused]]auto head = JETI::Header{};
 
-	for (auto cnt{0}; cnt < 10; ++cnt) {
-		/* wait for sensor update of 1 file descriptor for 1000 ms (1
-		 * second) */
-		auto poll_ret = px4_poll(fds, 1, 1000);
-		PX4_INFO("INFO: %d", poll_ret);
-		if (fds[0].revents & POLLIN) {
-			/* obtained data for the first file descriptor */
-			struct sensor_combined_s raw;
-			orb_copy(ORB_ID(sensor_combined), sensor_sub_fd, &raw);
+        for (auto cnt{0}; cnt < 10; ++cnt) {
+                /* wait for sensor update of 1 file descriptor for 1000 ms (1
+                 * second) */
+                auto poll_ret = px4_poll(fds, 1, 1000);
+                PX4_INFO("INFO: %d", poll_ret);
+                if (fds[0].revents & POLLIN) {
+                        /* obtained data for the first file descriptor */
+                        struct sensor_combined_s raw;
+			[[maybe_unused]]struct jeti_channel_data_s jeti_raw;
+                        orb_copy(ORB_ID(sensor_combined), sensor_sub_fd, &raw);
 
-			PX4_INFO("Accelerometer:\t%d\t%8.4f\t%8.4f\t%8.4f", cnt,
-				 (double)raw.accelerometer_m_s2[0],
-				 (double)raw.accelerometer_m_s2[1],
-				 (double)raw.accelerometer_m_s2[2]);
+                        PX4_INFO("Accelerometer:\t%d\t%8.4f\t%8.4f\t%8.4f\n\n", cnt,
+                                 (double)raw.accelerometer_m_s2[0],
+                                 (double)raw.accelerometer_m_s2[1],
+                                 (double)raw.accelerometer_m_s2[2]);
 
-			att.q[0] = 0.5 * cnt;
-			att.q[1] = cnt;
-			att.q[2] = raw.accelerometer_m_s2[2];
 
-			orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
+                        att.q[0] = 0.5 * cnt;
+                        att.q[1] = cnt;
+                        att.q[2] = raw.accelerometer_m_s2[2];
 
-			jeti_data.status = 1;
-			orb_publish(ORB_ID(jeti), jeti_pub, &jeti_data);
-		}
-	}
+                        orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
 
-	return OK;
+                        jeti_data.status = 1;
+                        orb_publish(ORB_ID(jeti), jeti_pub, &jeti_data);
+                }
+        }
+
+        return OK;
 }
 

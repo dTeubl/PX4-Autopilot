@@ -126,6 +126,7 @@ set(msg_files
 	InternalCombustionEngineStatus.msg
 	IridiumsbdStatus.msg
 	IrlockReport.msg
+	JetiChannelData.msg
 	LandingGear.msg
 	LandingGearWheel.msg
 	LandingTargetInnovations.msg
