@@ -77,6 +77,25 @@ auto jeti_extbus_main(int argc, char *argv[]) -> int {
 
         [[maybe_unused]]auto head = JETI::Header{};
 
+
+	jeti_channel_data_s jeti_raw = {};
+	jeti_raw.timestamp = hrt_absolute_time();
+	jeti_raw.head1 = 0x3E;
+	jeti_raw.head2 = 0x03;
+	jeti_raw.len = 0x28;
+	jeti_raw.packet_id = 0x06;
+	jeti_raw.data_id = 0x31;
+	jeti_raw.sub_len = 0x20;
+	jeti_raw.crc16 = 0xE24F;
+
+	[[maybe_unused]]orb_advert_t jeti_raw_pub = orb_advertise(ORB_ID(jeti_channel_data), &jeti_raw);
+
+	if (jeti_raw_pub == nullptr) {
+        PX4_ERR("Failed to advertise topic");
+        return 1;
+	}
+
+
         for (auto cnt{0}; cnt < 10; ++cnt) {
                 /* wait for sensor update of 1 file descriptor for 1000 ms (1
                  * second) */
@@ -85,13 +104,17 @@ auto jeti_extbus_main(int argc, char *argv[]) -> int {
                 if (fds[0].revents & POLLIN) {
                         /* obtained data for the first file descriptor */
                         struct sensor_combined_s raw;
-			[[maybe_unused]]struct jeti_channel_data_s jeti_raw;
                         orb_copy(ORB_ID(sensor_combined), sensor_sub_fd, &raw);
 
                         PX4_INFO("Accelerometer:\t%d\t%8.4f\t%8.4f\t%8.4f\n\n", cnt,
                                  (double)raw.accelerometer_m_s2[0],
                                  (double)raw.accelerometer_m_s2[1],
                                  (double)raw.accelerometer_m_s2[2]);
+
+			PX4_INFO("Jeti Data:\t%d\t%8.4f\t%8.4f\t%8.4f\n\n", cnt,
+				 (double)jeti_raw.head1,
+				 (double)jeti_raw.head2,
+				 (double)jeti_raw.len);
 
 
                         att.q[0] = 0.5 * cnt;
