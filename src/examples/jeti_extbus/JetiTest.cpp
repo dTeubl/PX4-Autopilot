@@ -102,7 +102,13 @@ std::array<uint8_t, 3> createDataArray(int size) {
 	return result;
 }
 
-auto jetiDecode(uint8_t byte, enum JETI::DECODE_STATE decode_state)
+auto jeti_decode_channel_high(uint16_t channel, const uint8_t value)
+    -> std::pair<JETI::DECODE_STATE, uint16_t> {
+	channel += value << 8;
+	return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_L, channel);
+}
+
+auto jetiDecode(const uint8_t byte, enum JETI::DECODE_STATE decode_state)
     -> std::pair<DECODE_STATE, uint16_t> {
 
 	static uint16_t channel_value{0};
@@ -150,9 +156,8 @@ auto jetiDecode(uint8_t byte, enum JETI::DECODE_STATE decode_state)
 		return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_H, 0);
 
 	case JETI::DECODE_STATE::GOT_DATA_CHANNEL_H:
-		channel_value += byte << 8;
-		return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_L,
-				      channel_value);
+		return jeti_decode_channel_high(channel_value, byte);
+		break;
 
 	default:
 		return std::make_pair(DECODE_STATE::UNSYNCED, 0u);
