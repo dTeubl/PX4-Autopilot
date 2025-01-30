@@ -31,12 +31,12 @@
  *
  ****************************************************************************/
 
+#include "extbus.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <iostream>
-#include "extbus.h"
-
 
 /**
  * Basic unit tests to drive the core functionality
@@ -65,16 +65,16 @@
 
 class JETIChannelData : public testing::Test {
       protected:
-        JETIChannelData() {}
+	JETIChannelData() {}
 
-        static const size_t data_len{40u};
-        const uint8_t raw_data[data_len] = {
-            0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
-            0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
-            0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
-            0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x4F, 0xE2,
-        };
-        const uint8_t* data_pointer = raw_data;
+	static const size_t data_len{40u};
+	const uint8_t raw_data[data_len] = {
+	    0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
+	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x4F, 0xE2,
+	};
+	const uint8_t *data_pointer = raw_data;
 };
 
 /** TODO
@@ -87,161 +87,159 @@ class JETIChannelData : public testing::Test {
 
 namespace JETI {
 
+namespace consts {
+constexpr std::uint8_t head_h{0x3EU};
+constexpr std::uint8_t head_l{0x03U};
+}; // namespace consts
 
-uint8_t* createDataArray(int size) {
-    uint8_t* arr = new uint8_t[size];
-    arr[0] = 0x3E;
-    arr[1] = 0x03;
-    arr[2] = (uint8_t)size;
-    return arr;
+std::array<uint8_t, 3> createDataArray(int size) {
+	// uint8_t *arr = new uint8_t[size];
+	std::array<uint8_t, 3> result{};
+	result.at(0) = consts::head_h;
+	// arr[1] = 0x03;
+	// arr[2] = (uint8_t)size;
+	return result;
 }
 
-int jetiDecode(uint8_t byte, enum JETI_DECODE_STATE decode_state) {
+auto jetiDecode(uint8_t byte, enum JETI::DECODE_STATE decode_state) -> uint8_t {
+	switch (decode_state) {
+	case JETI::DECODE_STATE::UNSYNCED:
+		if (byte == consts::head_h) {
+			return 1;
+		}
+		break;
 
-    int ret = 0;
+	case JETI::DECODE_STATE::GOT_HEADER_BYTE_1:
+		if (byte == consts::head_l) {
+			return 2;
+		}
+		break;
 
-    switch(decode_state) {
-        case JETI_DECODE_STATE_UNSYNCED:
-            if (byte == 0x3E) {
-	        decode_state = JETI_DECODE_STATE_GOT_HEADER_BYTE_1;
-	        return 1;
-            }
-            return 0;
-	    break;
+	case JETI::DECODE_STATE::GOT_HEADER_BYTE_2:
+		return byte;
+		break;
 
-        case JETI_DECODE_STATE_GOT_HEADER_BYTE_1:
-            if (byte == 0x03) {
-		decode_state = JETI_DECODE_STATE_GOT_HEADER_BYTE_2;
-	        return 2;
-            }
-            return 0;
-	    break;
+	case JETI::DECODE_STATE::GOT_LEN:
+		return byte;
+		break;
 
-	case JETI_DECODE_STATE_GOT_HEADER_BYTE_2:
-	    decode_state = JETI_DECODE_STATE_GOT_LEN;
-	    ret = (int)byte;
-	    break;
+	case JETI::DECODE_STATE::GOT_ID:
+		return byte;
+		break;
 
-	case JETI_DECODE_STATE_GOT_LEN:
-	    decode_state = JETI_DECODE_STATE_GOT_ID;
-	    ret = (int)byte;
-	    break;
+	case JETI::DECODE_STATE::GOT_DATA_ID:
+		return byte;
+		break;
 
-	case JETI_DECODE_STATE_GOT_ID:
-            decode_state = JETI_DECODE_STATE_GOT_DATA_ID;
-	    ret = (int)byte;
-	    break;
+	default:
+		return 0;
+		break;
+	}
 
-	case JETI_DECODE_STATE_GOT_DATA_ID:
-	    decode_state = JETI_DECODE_STATE_GOT_DATA_LEN;
-	    ret = (int)byte;
-	    break;
-
-        default:
-            ret = 0;
-	    break;
-    }
-
-    return ret; // Return a value indicating successful processing
+	return 0; // Return a value indicating successful processing
 }
 
-uint8_t* recreateData(JETI::Header header, JETI::CRC crc) {
-    uint8_t* arr = new uint8_t[(int)header.len];
-    arr[0] = header.H0;
-    arr[1] = header.H1;
-    arr[2] = header.len;
-    arr[3] = header.Packet_ID;
-    arr[4] = header.Data_ID;
+uint8_t *recreateData(JETI::Header header, JETI::CRC crc) {
+	uint8_t *arr = new uint8_t[(int)header.len];
+	arr[0] = header.H0;
+	arr[1] = header.H1;
+	arr[2] = header.len;
+	arr[3] = header.Packet_ID;
+	arr[4] = header.Data_ID;
 
-    for (int i = 0; i < ((int)header.Channels*2); i++) {
-	//fill array with correct channel value
-    }
+	for (int i = 0; i < ((int)header.Channels * 2); i++) {
+		// fill array with correct channel value
+	}
 
-    arr[(int)header.len-2] = crc.crc0;
-    arr[(int)header.len-1] = crc.crc1;
+	arr[(int)header.len - 2] = crc.crc0;
+	arr[(int)header.len - 1] = crc.crc1;
 
-    return arr;
+	return arr;
 }
 
 } // namespace JETI
 
-
 TEST_F(JETIChannelData, ParseHeader) {
-        const JETI::Header header = {
-            .H0 = 0x3E,
-            .H1 = 0x03,
-            .len = 0x28,
-            .Packet_ID = 0x06,
-            .Data_ID = 0x31,
-            .Channels = 0x10,
-        };
+	const JETI::Header header = {
+	    .H0 = JETI::consts::head_h,
+	    .H1 = JETI::consts::head_l,
+	    .len = 0x28,
+	    .Packet_ID = 0x06,
+	    .Data_ID = 0x31,
+	    .Channels = 0x10,
+	};
 
-        const JETI::Header testHeader = JETI::GetHeader(raw_data, data_len);
+	const JETI::Header testHeader = JETI::GetHeader(raw_data, data_len);
 
-        EXPECT_EQ(header, JETI::GetHeader(raw_data, data_len));
-        EXPECT_EQ(header, testHeader);
-        EXPECT_EQ(0x10, testHeader.Channels);
+	EXPECT_EQ(header, JETI::GetHeader(raw_data, data_len));
+	EXPECT_EQ(header, testHeader);
+	EXPECT_EQ(0x10, testHeader.Channels);
 }
 
 TEST_F(JETIChannelData, RecognizeHeader) {
-        const auto head = JETI::GetHeader(raw_data, data_len);
+	const auto head = JETI::GetHeader(raw_data, data_len);
 
-        EXPECT_TRUE(JETI::IsChannels(head));
+	EXPECT_TRUE(JETI::IsChannels(head));
 }
 
 TEST_F(JETIChannelData, CalculateFirstChannelValue) {
-        const auto ch_id{0};
-        auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
-        EXPECT_LE(1.00825f - channel, 0.000000001f);
+	const auto ch_id{0};
+	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
+	EXPECT_LE(1.00825f - channel, 0.000000001f);
 }
 
 TEST_F(JETIChannelData, CalculateSecondChannelValue) {
-        const auto ch_id{1};
-        auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
-        EXPECT_LE(1.00825f - channel, 0.000000001f);
+	const auto ch_id{1};
+	auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
+	EXPECT_LE(1.00825f - channel, 0.000000001f);
 }
 
 TEST_F(JETIChannelData, ExtractCrcValues) {
-        const JETI::CRC crc = {
-                .crc0 = 0x4F,
-                .crc1 = 0xE2,
-        };
+	const JETI::CRC crc = {
+	    .crc0 = 0x4F,
+	    .crc1 = 0xE2,
+	};
 
-        EXPECT_EQ(crc, JETI::ExtractCrcValues(raw_data, data_len));
+	EXPECT_EQ(crc, JETI::ExtractCrcValues(raw_data, data_len));
 }
 
 TEST_F(JETIChannelData, GetCRC) {
 
-        EXPECT_EQ(0xE24F, JETI::GetCRC(raw_data, data_len));
+	EXPECT_EQ(0xE24F, JETI::GetCRC(raw_data, data_len));
 }
 
 TEST_F(JETIChannelData, GetCRC16Update) {
 
-         EXPECT_EQ(0xD8FD, JETI::crc16_update(0x00, 0x3E));
+	EXPECT_EQ(0xD8FD, JETI::crc16_update(0x00, JETI::consts::head_h));
 }
 
 TEST_F(JETIChannelData, GetCRCwithChecksum) {
 
-         EXPECT_EQ(0xE24F, JETI::Get_crc16z(data_pointer, data_len));
+	EXPECT_EQ(0xE24F, JETI::Get_crc16z(data_pointer, data_len));
 }
 
 TEST_F(JETIChannelData, ValidateChecksum) {
 
-         EXPECT_TRUE(JETI::ValidateMsg(data_pointer, raw_data, data_len));
+	EXPECT_TRUE(JETI::ValidateMsg(data_pointer, raw_data, data_len));
 }
 
 TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
 
-        EXPECT_FALSE(JETI::CheckChannelOverreach(5,raw_data,data_len));
-        EXPECT_FALSE(JETI::CheckChannelOverreach(16,raw_data,data_len));
-        EXPECT_TRUE(JETI::CheckChannelOverreach(28,raw_data,data_len));
-
+	EXPECT_FALSE(JETI::CheckChannelOverreach(5, raw_data, data_len));
+	EXPECT_FALSE(JETI::CheckChannelOverreach(16, raw_data, data_len));
+	EXPECT_TRUE(JETI::CheckChannelOverreach(28, raw_data, data_len));
 }
 
 TEST_F(JETIChannelData, jetiDecode) {
-	EXPECT_EQ(1, JETI::jetiDecode(0x3E, JETI::JETI_DECODE_STATE_UNSYNCED));
-	EXPECT_EQ(2, JETI::jetiDecode(0x03, JETI::JETI_DECODE_STATE_GOT_HEADER_BYTE_1));
-	EXPECT_EQ(40, JETI::jetiDecode(0x28, JETI::JETI_DECODE_STATE_GOT_HEADER_BYTE_2));
-        EXPECT_EQ(6, JETI::jetiDecode(0x06, JETI::JETI_DECODE_STATE_GOT_LEN));
+	EXPECT_EQ(1, JETI::jetiDecode(JETI::consts::head_h,
+				      JETI::DECODE_STATE::UNSYNCED));
+
+	EXPECT_EQ(2, JETI::jetiDecode(JETI::consts::head_l,
+				      JETI::DECODE_STATE::GOT_HEADER_BYTE_1));
+
+	EXPECT_EQ(
+	    40, JETI::jetiDecode(0x28, JETI::DECODE_STATE::GOT_HEADER_BYTE_2));
+
+	EXPECT_EQ(6, JETI::jetiDecode(0x06, JETI::DECODE_STATE::GOT_LEN));
 }
 

@@ -10,3 +10,15 @@
 + Have a **TODO** list, either inside the main module, or just as a text file next to the modules. Maintain that all the time. Add new elements on the fly, and mark finished items.
 
 + GetChannelValues(...) seems a bit overkill at the moment. Likely there will be no need for additional storage for the values, since they'll be copied early on into their data structure. Decoding/removing siingle channel values by index, probably enough for now. Keep **KISS** and **YAGNI** in mind all the time. Don't use more resource than you need, specially if you don't know if you'll need it or not. Removing code is easy, putting in is hard, not putting code in is even easier.
+
+
+21.01.2025
+----------
+
++ Why copy the files, and not reuse there in the place?
+    + Same goes for the tests cases as well of course?
++ Tests toolchain is broken for - it seems to me at least
+
+
+
+
