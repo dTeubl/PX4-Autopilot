@@ -102,33 +102,38 @@ std::array<uint8_t, 3> createDataArray(int size) {
 }
 
 auto jetiDecode(uint8_t byte, enum JETI::DECODE_STATE decode_state) -> uint8_t {
+
 	switch (decode_state) {
 	case JETI::DECODE_STATE::UNSYNCED:
 		if (byte == consts::head_h) {
-			return 1;
+			return JETI::DECODE_STATE::GOT_HEADER_BYTE_1;
 		}
 		break;
 
 	case JETI::DECODE_STATE::GOT_HEADER_BYTE_1:
 		if (byte == consts::head_l) {
-			return 2;
+			return JETI::DECODE_STATE::GOT_HEADER_BYTE_2;
 		}
 		break;
 
 	case JETI::DECODE_STATE::GOT_HEADER_BYTE_2:
-		return byte;
+		return JETI::DECODE_STATE::GOT_LEN;
 		break;
 
 	case JETI::DECODE_STATE::GOT_LEN:
-		return byte;
+		if (byte == 0x06)
+			return JETI::DECODE_STATE::GOT_PACKET_ID;
 		break;
 
-	case JETI::DECODE_STATE::GOT_ID:
-		return byte;
+	case JETI::DECODE_STATE::GOT_PACKET_ID:
+		if (byte == 0x31)
+			return JETI::DECODE_STATE::GOT_DATA_LEN;
 		break;
 
-	case JETI::DECODE_STATE::GOT_DATA_ID:
-		return byte;
+	case JETI::DECODE_STATE::GOT_DATA_LEN:
+		if (byte == 0x00)
+			return JETI::DECODE_STATE::UNSYNCED;
+		return JETI::DECODE_STATE::GOT_DATA_CHANNELS;
 		break;
 
 	default:
@@ -231,15 +236,48 @@ TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
 }
 
 TEST_F(JETIChannelData, jetiDecode) {
-	EXPECT_EQ(1, JETI::jetiDecode(JETI::consts::head_h,
-				      JETI::DECODE_STATE::UNSYNCED));
 
-	EXPECT_EQ(2, JETI::jetiDecode(JETI::consts::head_l,
-				      JETI::DECODE_STATE::GOT_HEADER_BYTE_1));
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_HEADER_BYTE_1,
+		  JETI::jetiDecode(JETI::consts::head_h,
+				   JETI::DECODE_STATE::UNSYNCED));
+
+	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED,
+		  JETI::jetiDecode(0x00, JETI::DECODE_STATE::UNSYNCED));
+
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_HEADER_BYTE_2,
+		  JETI::jetiDecode(JETI::consts::head_l,
+				   JETI::DECODE_STATE::GOT_HEADER_BYTE_1));
 
 	EXPECT_EQ(
-	    40, JETI::jetiDecode(0x28, JETI::DECODE_STATE::GOT_HEADER_BYTE_2));
+	    JETI::DECODE_STATE::UNSYNCED,
+	    JETI::jetiDecode(0x00, JETI::DECODE_STATE::GOT_HEADER_BYTE_1));
 
-	EXPECT_EQ(6, JETI::jetiDecode(0x06, JETI::DECODE_STATE::GOT_LEN));
+	EXPECT_EQ(
+	    JETI::DECODE_STATE::GOT_LEN,
+	    JETI::jetiDecode(0x28, JETI::DECODE_STATE::GOT_HEADER_BYTE_2));
+
+	// How to handle the different message lenght!!!
+	// EXPECT_EQ(JETI::DECODE_STATE::GOT_LEN, JETI::jetiDecode(0x0,
+	// JETI::DECODE_STATE::GOT_HEADER_BYTE_2));
+
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_PACKET_ID,
+		  JETI::jetiDecode(0x06, JETI::DECODE_STATE::GOT_LEN));
+
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_LEN,
+		  JETI::jetiDecode(0x31, JETI::DECODE_STATE::GOT_PACKET_ID));
+
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNELS,
+		  JETI::jetiDecode(0x20, JETI::DECODE_STATE::GOT_DATA_LEN));
+	/**
+	 * + How are we sure that we reached the next state?
+	 * + How to ensure Packge length and data lenght are mathcing?
+	 * + How to signal, that the current/next byte is already crc?
+	 * + How to handle 4,6,10,12 channels?
+	 * + How to handle incorrect channel value like not even value?  like 1,
+	 * 5?
+	 * +....
+	 */
+	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED,
+		  JETI::jetiDecode(0x00, JETI::DECODE_STATE::GOT_DATA_LEN));
 }
 
