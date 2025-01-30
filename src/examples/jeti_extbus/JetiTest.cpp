@@ -300,12 +300,15 @@ TEST_F(JETIChannelData, jetiDecode) {
 	EXPECT_EQ(32, result.second);
 
 	/**
+	 * + TODO:
 	 * + How are we sure that we reached the next state?
 	 * + How to ensure Packge length and data lenght are mathcing?
 	 * + How to signal, that the current/next byte is already crc?
 	 * + How to handle 4,6,10,12 channels?
 	 * + How to handle incorrect channel value like not even value?  like 1,
 	 * 5?
+	 * + Separate SM to standlone cpp/h files
+	 * + Convert SM to a class to help pass variables
 	 * +....
 	 */
 
