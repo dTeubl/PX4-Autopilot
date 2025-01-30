@@ -37,6 +37,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <utility>
 
 /**
  * Basic unit tests to drive the core functionality
@@ -101,47 +102,64 @@ std::array<uint8_t, 3> createDataArray(int size) {
 	return result;
 }
 
-auto jetiDecode(uint8_t byte, enum JETI::DECODE_STATE decode_state) -> uint8_t {
+auto jetiDecode(uint8_t byte, enum JETI::DECODE_STATE decode_state)
+    -> std::pair<DECODE_STATE, uint16_t> {
+
+	static uint16_t channel_value{0};
+
+	using namespace JETI;
 
 	switch (decode_state) {
-	case JETI::DECODE_STATE::UNSYNCED:
+	case DECODE_STATE::UNSYNCED:
 		if (byte == consts::head_h) {
-			return JETI::DECODE_STATE::GOT_HEADER_BYTE_1;
+			return std::make_pair(DECODE_STATE::GOT_HEADER_BYTE_1,
+					      0u);
 		}
 		break;
 
 	case JETI::DECODE_STATE::GOT_HEADER_BYTE_1:
 		if (byte == consts::head_l) {
-			return JETI::DECODE_STATE::GOT_HEADER_BYTE_2;
+			return std::make_pair(DECODE_STATE::GOT_HEADER_BYTE_2,
+					      0u);
 		}
 		break;
 
 	case JETI::DECODE_STATE::GOT_HEADER_BYTE_2:
-		return JETI::DECODE_STATE::GOT_LEN;
+		return std::make_pair(DECODE_STATE::GOT_LEN, 0u);
 		break;
 
 	case JETI::DECODE_STATE::GOT_LEN:
 		if (byte == 0x06)
-			return JETI::DECODE_STATE::GOT_PACKET_ID;
+			return std::make_pair(DECODE_STATE::GOT_PACKET_ID, 0u);
 		break;
 
 	case JETI::DECODE_STATE::GOT_PACKET_ID:
 		if (byte == 0x31)
-			return JETI::DECODE_STATE::GOT_DATA_LEN;
+			return std::make_pair(DECODE_STATE::GOT_DATA_LEN, 0u);
 		break;
 
 	case JETI::DECODE_STATE::GOT_DATA_LEN:
 		if (byte == 0x00)
-			return JETI::DECODE_STATE::UNSYNCED;
-		return JETI::DECODE_STATE::GOT_DATA_CHANNELS;
+			return std::make_pair(DECODE_STATE::UNSYNCED, 0u);
+
+		return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_L, byte);
 		break;
 
+	case JETI::DECODE_STATE::GOT_DATA_CHANNEL_L:
+		channel_value = byte;
+		return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_H, 0);
+
+	case JETI::DECODE_STATE::GOT_DATA_CHANNEL_H:
+		channel_value += byte << 8;
+		return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_L,
+				      channel_value);
+
 	default:
-		return 0;
+		return std::make_pair(DECODE_STATE::UNSYNCED, 0u);
 		break;
 	}
 
-	return 0; // Return a value indicating successful processing
+	return std::make_pair(DECODE_STATE::UNSYNCED, channel_value);
 }
 
 uint8_t *recreateData(JETI::Header header, JETI::CRC crc) {
@@ -237,6 +255,7 @@ TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
 
 TEST_F(JETIChannelData, jetiDecode) {
 
+	/*
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_HEADER_BYTE_1,
 		  JETI::jetiDecode(JETI::consts::head_h,
 				   JETI::DECODE_STATE::UNSYNCED));
@@ -266,8 +285,15 @@ TEST_F(JETIChannelData, jetiDecode) {
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_LEN,
 		  JETI::jetiDecode(0x31, JETI::DECODE_STATE::GOT_PACKET_ID));
 
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNELS,
-		  JETI::jetiDecode(0x20, JETI::DECODE_STATE::GOT_DATA_LEN));
+	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED,
+		  JETI::jetiDecode(0x00, JETI::DECODE_STATE::GOT_DATA_LEN));
+
+		  */
+	auto result = JETI::jetiDecode(0x20, JETI::DECODE_STATE::GOT_DATA_LEN);
+
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_L, result.first);
+	EXPECT_EQ(32, result.second);
+
 	/**
 	 * + How are we sure that we reached the next state?
 	 * + How to ensure Packge length and data lenght are mathcing?
@@ -277,7 +303,16 @@ TEST_F(JETIChannelData, jetiDecode) {
 	 * 5?
 	 * +....
 	 */
-	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED,
-		  JETI::jetiDecode(0x00, JETI::DECODE_STATE::GOT_DATA_LEN));
+
+	// result = JETI::jetiDecode(0x82, result.first);
+	result = JETI::jetiDecode(0x82, JETI::DECODE_STATE::GOT_DATA_CHANNEL_L);
+
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_H, result.first);
+	EXPECT_EQ(0, result.second);
+
+	result = JETI::jetiDecode(0x1F, JETI::DECODE_STATE::GOT_DATA_CHANNEL_H);
+
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_L, result.first);
+	EXPECT_EQ(0x1F82U, result.second);
 }
 
