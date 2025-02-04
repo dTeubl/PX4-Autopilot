@@ -89,11 +89,6 @@ class JETIChannelData : public testing::Test {
 
 namespace JETI {
 
-namespace consts {
-constexpr std::uint8_t head_h{0x3EU};
-constexpr std::uint8_t head_l{0x03U};
-}; // namespace consts
-
 auto jeti_decode_channel_high(uint16_t channel, const uint8_t value)
     -> std::pair<JETI::DECODE_STATE, uint16_t> {
 	channel += value << 8;
@@ -170,7 +165,7 @@ public:
 
 	DecodeVariable() : current_state(JETI::DECODE_STATE::UNSYNCED), current_byte(0), data_channel_count(0){};
 
-	auto decodePackage(){
+	void decodePackage(){
 		switch(current_state) {
 		case JETI::DECODE_STATE::UNSYNCED:
 		    if(checkValidHeaderHigh()){
@@ -483,11 +478,9 @@ TEST_F(JETIChannelData, jetiClassDecode){
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH, decode.current_state);
 
 	for(int i = 0; i < 15; i++){
-
 	decode.updateCurrentByte(0x82);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW, decode.current_state);
-
 	decode.updateCurrentByte(0x1F);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH, decode.current_state);
@@ -508,5 +501,6 @@ TEST_F(JETIChannelData, jetiDecodeDefault){
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED, decode.current_state);
 }
+
 
 
