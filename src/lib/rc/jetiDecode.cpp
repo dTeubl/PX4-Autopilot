@@ -34,7 +34,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include "exbus_decode.h"
+#include "jetiDecode.h"
 
 JETI::DecodeVariable::DecodeVariable() : current_state(JETI::DECODE_STATE::UNSYNCED), current_byte(0), data_channel_count(0){};
 
@@ -191,3 +191,5 @@ bool JETI::DecodeVariable::dataLenZero(){
 		return false;
 	}
 }
+
+

@@ -53,7 +53,11 @@ private:
         bool jetiTestGetCRCwithChecksum();
         bool jetiTestValidateChecksum();
         bool jetiTestCheckChannelOverreach();
-	bool jetiTestDecodeRun();
+	bool jetiTestDecodeValidMsg();
+	bool jetiTestDecodeInvalidMsg();
+	bool jetiTestDecodeRunTwoValidMsg();
+	bool jetiTestDecodeRequestTelemetry();
+	bool jetiTestDecodeRequestMenubox();
 
 };
 
@@ -79,7 +83,11 @@ bool RCTest::run_tests()
         ut_run_test(jetiTestGetCRCwithChecksum);
         ut_run_test(jetiTestValidateChecksum);
         ut_run_test(jetiTestCheckChannelOverreach);
-	ut_run_test(jetiTestDecodeRun);
+	ut_run_test(jetiTestDecodeValidMsg);
+	ut_run_test(jetiTestDecodeInvalidMsg);
+	ut_run_test(jetiTestDecodeRunTwoValidMsg);
+	ut_run_test(jetiTestDecodeRequestTelemetry);
+	ut_run_test(jetiTestDecodeRequestMenubox);
 
         return (_tests_failed == 0);
 }
@@ -557,145 +565,6 @@ const uint8_t raw_data[data_len] = {
 };
 const uint8_t* data_pointer = raw_data;
 
-class DecodeVariable{
-public:
-
-	JETI::DECODE_STATE current_state;
-	uint8_t current_byte;
-	uint8_t data_package[40];
-	int data_channel_count;
-
-	DecodeVariable() : current_state(JETI::DECODE_STATE::UNSYNCED), current_byte(0), data_channel_count(0){};
-
-	void decodePackage(){
-		switch(current_state) {
-		case JETI::DECODE_STATE::UNSYNCED:
-		    if(checkValidHeaderHigh()){
-		  	updateCurrentState(JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH);
-			updateDataPackage(0, current_byte);
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH:
-		    if(checkValidHeaderLow()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW);
-			updateDataPackage(1, current_byte);
-		    } else {
-			returnToUnsyncState();
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW:
-		    if(checkValidLength()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_LEN);
-			updateDataPackage(2, current_byte);
-		    } else {
-			returnToUnsyncState();
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_LEN:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_PACKET_ID);
-		    updateDataPackage(3, current_byte);
-		    break;
-
-		case JETI::DECODE_STATE::GOT_PACKET_ID:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_DATA_TYPES);
-		    updateDataPackage(4, current_byte);
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_TYPES:
-		    if(checkValidDataLength()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_DATA_LEN);
-			updateDataPackage(5, current_byte);
-		    } else {
-			returnToUnsyncState();
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_LEN:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW);
-		    updateDataChannel();
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH);
-		    updateDataChannel();
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH:
-		    if(checkLastDataChannel()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW);
-		        updateDataChannel();
-			break;
-		    } else {
-			updateCurrentState(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW);
-		        updateDataChannel();
-			break;
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH);
-		    updateDataChannel();
-		    break;
-
-                default:
-		    current_state = JETI::DECODE_STATE::UNSYNCED;
-		    break;
-		}
-	};
-
-	void updateCurrentByte(uint8_t new_byte){
-		current_byte = new_byte;
-	};
-
-	void updateCurrentState(JETI::DECODE_STATE new_state){
-		current_state = new_state;
-	}
-
-	bool checkValidHeaderHigh(){
-		return current_byte == JETI::consts::head_h;
-	};
-
-	bool checkValidHeaderLow(){
-		return current_byte == JETI::consts::head_l;
-	}
-
-	bool checkValidLength(){
-		return current_byte > 9 && current_byte%2 == 0; //smallest package contains at least ten bytes and is an even number
-	}
-
-	bool checkValidDataLength(){
-		return current_byte == data_package[2] - 8;
-	}
-
-	void returnToUnsyncState(){
-		current_state = JETI::DECODE_STATE::UNSYNCED;
-	}
-
-	bool checkLastDataChannel(){
-		return data_channel_count == data_package[5];
-	}
-
-	void updateDataChannel(){
-		if(!outOfBounds()){
-			updateDataPackage((6+data_channel_count), current_byte);
-			data_channel_count += 1;
-		} else {
-			printf("Data is out of bounds!\n\n");
-		}
-	}
-
-	void updateDataPackage(int entry_position, uint8_t entry_val){
-		data_package[entry_position] = entry_val;
-	}
-
-	bool outOfBounds(){
-		return data_channel_count > data_package[5]+2;
-	}
-};
-
 bool RCTest::jetiTestParseHeader(){
 
         const JETI::Header header = {
@@ -779,7 +648,7 @@ bool RCTest::jetiTestCheckChannelOverreach(){
         return true;
 }
 
-bool RCTest::jetiTestDecodeRun(){
+bool RCTest::jetiTestDecodeValidMsg(){
 	const char *filepath = TEST_DATA_PATH "jeti_exbus_data.txt";
 
         FILE *fp;
@@ -790,7 +659,147 @@ bool RCTest::jetiTestDecodeRun(){
         float timestamp;
         unsigned current_byte;
 
-        DecodeVariable decode;
+        JETI::DecodeVariable decode;
+
+	int ret;
+
+        while (EOF != (ret = fscanf(fp, "%f,%x,,", &timestamp, &current_byte))) {
+
+                if (ret <= 0) {
+                        fclose(fp);
+                        ut_test(ret > 0);
+                }
+
+                uint8_t b = static_cast<uint8_t>(current_byte);
+
+		decode.updateCurrentByte(b);
+		decode.decodePackage();
+
+        }
+
+        ut_test(ret == EOF);
+	ut_test(decode.current_state == JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH);
+
+        return true;
+}
+
+bool RCTest::jetiTestDecodeInvalidMsg(){
+	const char *filepath = TEST_DATA_PATH "jeti_exbus_fail.txt";
+
+        FILE *fp;
+
+        fp = fopen(filepath, "rt");
+        ut_test(fp);
+
+        float timestamp;
+        unsigned current_byte;
+
+        JETI::DecodeVariable decode;
+
+	int ret;
+
+        while (EOF != (ret = fscanf(fp, "%f,%x,,", &timestamp, &current_byte))) {
+
+                if (ret <= 0) {
+                        fclose(fp);
+                        ut_test(ret > 0);
+                }
+
+                uint8_t b = static_cast<uint8_t>(current_byte);
+
+		decode.updateCurrentByte(b);
+		decode.decodePackage();
+
+        }
+
+        ut_test(ret == EOF);
+	ut_test(decode.current_state == JETI::DECODE_STATE::UNSYNCED);
+
+        return true;
+}
+
+bool RCTest::jetiTestDecodeRunTwoValidMsg(){
+	const char *filepath = TEST_DATA_PATH "jeti_exbus_two_valid_messages.txt";
+
+        FILE *fp;
+
+        fp = fopen(filepath, "rt");
+        ut_test(fp);
+
+        float timestamp;
+        unsigned current_byte;
+
+        JETI::DecodeVariable decode;
+
+	int ret;
+
+        while (EOF != (ret = fscanf(fp, "%f,%x,,", &timestamp, &current_byte))) {
+
+                if (ret <= 0) {
+                        fclose(fp);
+                        ut_test(ret > 0);
+                }
+
+                uint8_t b = static_cast<uint8_t>(current_byte);
+
+		decode.updateCurrentByte(b);
+		decode.decodePackage();
+
+        }
+
+        ut_test(ret == EOF);
+	ut_test(decode.current_state == JETI::DECODE_STATE::GOT_DATA_TYPES);
+
+        return true;
+}
+
+bool RCTest::jetiTestDecodeRequestTelemetry(){
+	const char *filepath = TEST_DATA_PATH "jeti_exbus_request_telemetry.txt";
+
+        FILE *fp;
+
+        fp = fopen(filepath, "rt");
+        ut_test(fp);
+
+        float timestamp;
+        unsigned current_byte;
+
+        JETI::DecodeVariable decode;
+
+	int ret;
+
+        while (EOF != (ret = fscanf(fp, "%f,%x,,", &timestamp, &current_byte))) {
+
+                if (ret <= 0) {
+                        fclose(fp);
+                        ut_test(ret > 0);
+                }
+
+                uint8_t b = static_cast<uint8_t>(current_byte);
+
+		decode.updateCurrentByte(b);
+		decode.decodePackage();
+
+        }
+
+        ut_test(ret == EOF);
+	ut_test(decode.current_state == JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW);
+
+        return true;
+}
+
+bool RCTest::jetiTestDecodeRequestMenubox(){
+	const char *filepath = TEST_DATA_PATH "jeti_exbus_request_menubox.txt";
+
+        FILE *fp;
+
+        fp = fopen(filepath, "rt");
+        ut_test(fp);
+
+        float timestamp;
+        unsigned current_byte;
+
+        JETI::DecodeVariable decode;
 
 	int ret;
 

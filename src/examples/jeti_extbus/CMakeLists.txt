@@ -36,6 +36,7 @@ px4_add_module(
 	SRCS
 		jeti_extbus.cpp
 		extbus.cpp
+		exbus_decode.cpp
 	DEPENDS
 	)
 

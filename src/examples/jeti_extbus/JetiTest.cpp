@@ -89,217 +89,12 @@ class JETIChannelData : public testing::Test {
 
 namespace JETI {
 
-auto jeti_decode_channel_high(uint16_t channel, const uint8_t value)
-    -> std::pair<JETI::DECODE_STATE, uint16_t> {
-	channel += value << 8;
-	return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_LOW, channel);
-}
-
-auto jetiDecode(const uint8_t byte, enum JETI::DECODE_STATE decode_state)
-    -> std::pair<DECODE_STATE, uint16_t> {
-
-	static uint16_t channel_value{0};
-
-	using namespace JETI;
-
-	switch (decode_state) {
-	case DECODE_STATE::UNSYNCED:
-		if (byte == consts::head_h) {
-			return std::make_pair(DECODE_STATE::GOT_HEADER_BYTE_HIGH,
-					      0u);
-		}
-		break;
-
-	case JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH:
-		if (byte == consts::head_l) {
-			return std::make_pair(DECODE_STATE::GOT_HEADER_BYTE_LOW,
-					      0u);
-		}
-		break;
-
-	case JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW:
-		return std::make_pair(DECODE_STATE::GOT_LEN, 0u);
-		break;
-
-	case JETI::DECODE_STATE::GOT_LEN:
-		if (byte == 0x06)
-			return std::make_pair(DECODE_STATE::GOT_PACKET_ID, 0u);
-		break;
-
-	case JETI::DECODE_STATE::GOT_PACKET_ID:
-		if (byte == 0x31)
-			return std::make_pair(DECODE_STATE::GOT_DATA_LEN, 0u);
-		break;
-
-	case JETI::DECODE_STATE::GOT_DATA_LEN:
-		if (byte == 0x00)
-			return std::make_pair(DECODE_STATE::UNSYNCED, 0u);
-
-		return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_LOW, byte);
-		break;
-
-	case JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW:
-		channel_value = byte;
-		return std::make_pair(DECODE_STATE::GOT_DATA_CHANNEL_HIGH, 0);
-
-	case JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH:
-		return jeti_decode_channel_high(channel_value, byte);
-		break;
-
-	default:
-		return std::make_pair(DECODE_STATE::UNSYNCED, 0u);
-		break;
-	}
-
-	return std::make_pair(DECODE_STATE::UNSYNCED, channel_value);
-}
-
-
-class DecodeVariable{
-public:
-
-	JETI::DECODE_STATE current_state;
-	uint8_t current_byte;
-	uint8_t data_package[40];
-	int data_channel_count;
-
-	DecodeVariable() : current_state(JETI::DECODE_STATE::UNSYNCED), current_byte(0), data_channel_count(0){};
-
-	void decodePackage(){
-		switch(current_state) {
-		case JETI::DECODE_STATE::UNSYNCED:
-		    if(checkValidHeaderHigh()){
-		  	updateCurrentState(JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH);
-			updateDataPackage(0, current_byte);
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH:
-		    if(checkValidHeaderLow()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW);
-			updateDataPackage(1, current_byte);
-		    } else {
-			returnToUnsyncState();
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW:
-		    if(checkValidLength()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_LEN);
-			updateDataPackage(2, current_byte);
-		    } else {
-			returnToUnsyncState();
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_LEN:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_PACKET_ID);
-		    updateDataPackage(3, current_byte);
-		    break;
-
-		case JETI::DECODE_STATE::GOT_PACKET_ID:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_DATA_TYPES);
-		    updateDataPackage(4, current_byte);
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_TYPES:
-		    if(checkValidDataLength()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_DATA_LEN);
-			updateDataPackage(5, current_byte);
-		    } else {
-			returnToUnsyncState();
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_LEN:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW);
-		    updateDataChannel();
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH);
-		    updateDataChannel();
-		    break;
-
-		case JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH:
-		    if(checkLastDataChannel()){
-			updateCurrentState(JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW);
-		        updateDataChannel();
-			break;
-		    } else {
-			updateCurrentState(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW);
-		        updateDataChannel();
-			break;
-		    }
-		    break;
-
-		case JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW:
-		    updateCurrentState(JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH);
-		    updateDataChannel();
-		    break;
-
-                default:
-		    current_state = JETI::DECODE_STATE::UNSYNCED;
-		    break;
-		}
-	};
-
-	void updateCurrentByte(uint8_t new_byte){
-		current_byte = new_byte;
-	};
-
-	void updateCurrentState(JETI::DECODE_STATE new_state){
-		current_state = new_state;
-	}
-
-	bool checkValidHeaderHigh(){
-		return current_byte == consts::head_h;
-	};
-
-	bool checkValidHeaderLow(){
-		return current_byte == consts::head_l;
-	}
-
-	bool checkValidLength(){
-		return current_byte > 9 && current_byte%2 == 0; //smallest package contains at least ten bytes and is an even number
-	}
-
-	bool checkValidDataLength(){
-		return current_byte == data_package[2] - 8;
-	}
-
-	void returnToUnsyncState(){
-		current_state = JETI::DECODE_STATE::UNSYNCED;
-	}
-
-	bool checkLastDataChannel(){
-		return data_channel_count == data_package[5];
-	}
-
-	void updateDataChannel(){
-		if(!outOfBounds()){
-			updateDataPackage((6+data_channel_count), current_byte);
-			data_channel_count += 1;
-		} else {
-			printf("Data is out of bounds!\n\n");
-		}
-	}
-
-	void updateDataPackage(int entry_position, uint8_t entry_val){
-		data_package[entry_position] = entry_val;
-	}
-
-	bool outOfBounds(){
-		return data_channel_count > data_package[5]+2;
-	}
-};
-
 } // namespace JETI
 
 TEST_F(JETIChannelData, ParseHeader) {
 	const JETI::Header header = {
-	    .H0 = JETI::consts::head_h,
-	    .H1 = JETI::consts::head_l,
+	    .H0 = JETI::consts::head_h_channel_data,
+	    .H1 = JETI::consts::head_l_without_scope,
 	    .len = 0x28,
 	    .Packet_ID = 0x06,
 	    .Data_ID = 0x31,
@@ -347,7 +142,7 @@ TEST_F(JETIChannelData, GetCRC) {
 
 TEST_F(JETIChannelData, GetCRC16Update) {
 
-	EXPECT_EQ(0xD8FD, JETI::crc16_update(0x00, JETI::consts::head_h));
+	EXPECT_EQ(0xD8FD, JETI::crc16_update(0x00, JETI::consts::head_h_channel_data));
 }
 
 TEST_F(JETIChannelData, GetCRCwithChecksum) {
@@ -367,115 +162,61 @@ TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
 	EXPECT_TRUE(JETI::CheckChannelOverreach(28, raw_data, data_len));
 }
 
-TEST_F(JETIChannelData, jetiDecode) {
-
-	/*
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH,
-		  JETI::jetiDecode(JETI::consts::head_h,
-				   JETI::DECODE_STATE::UNSYNCED));
-
-	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED,
-		  JETI::jetiDecode(0x00, JETI::DECODE_STATE::UNSYNCED));
-
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW,
-		  JETI::jetiDecode(JETI::consts::head_l,
-				   JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH));
-
-	EXPECT_EQ(
-	    JETI::DECODE_STATE::UNSYNCED,
-	    JETI::jetiDecode(0x00, JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH));
-
-	EXPECT_EQ(
-	    JETI::DECODE_STATE::GOT_LEN,
-	    JETI::jetiDecode(0x28, JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW));
-
-	// How to handle the different message lenght!!!
-	// EXPECT_EQ(JETI::DECODE_STATE::GOT_LEN, JETI::jetiDecode(0x0,
-	// JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW));
-
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_PACKET_ID,
-		  JETI::jetiDecode(0x06, JETI::DECODE_STATE::GOT_LEN));
-
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_LEN,
-		  JETI::jetiDecode(0x31, JETI::DECODE_STATE::GOT_PACKET_ID));
-
-	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED,
-		  JETI::jetiDecode(0x00, JETI::DECODE_STATE::GOT_DATA_LEN));
-
-		  */
-	auto result = JETI::jetiDecode(0x20, JETI::DECODE_STATE::GOT_DATA_LEN);
-
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW, result.first);
-	EXPECT_EQ(32, result.second);
-
-	/**
-	 * + TODO:
-	 * + How are we sure that we reached the next state?
-	 * + How to ensure Packge length and data lenght are mathcing?
-	 * + How to signal, that the current/next byte is already crc?
-	 * + How to handle 4,6,10,12 channels?
-	 * + How to handle incorrect channel value like not even value?  like 1,
-	 * 5?
-	 * + Separate SM to standlone cpp/h files
-	 * + Convert SM to a class to help pass variables
-	 * +....
-	 */
-
-	// result = JETI::jetiDecode(0x82, result.first);
-	result = JETI::jetiDecode(0x82, JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW);
-
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH, result.first);
-	EXPECT_EQ(0, result.second);
-
-	result = JETI::jetiDecode(0x1F, JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH);
-
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW, result.first);
-	EXPECT_EQ(0x1F82U, result.second);
-}
-
 TEST_F(JETIChannelData, jetiClassDecode){
 	JETI::DecodeVariable decode;
 
-	decode.updateCurrentByte(JETI::consts::head_l);
-	EXPECT_EQ(JETI::consts::head_l, decode.current_byte);
+	//Check whether updateCurrentByte() works
+	decode.updateCurrentByte(JETI::consts::head_l_without_scope);
+	EXPECT_EQ(JETI::consts::head_l_without_scope, decode.current_byte);
 
-	decode.updateCurrentByte(JETI::consts::head_h);
+        //Check whether we reach GOT_HEADER_BYTE_HIGH
+	decode.updateCurrentByte(JETI::consts::head_h_channel_data);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_HEADER_BYTE_HIGH, decode.current_state);
 
-	decode.updateCurrentByte(JETI::consts::head_l);
+        //Check whether we reach GOT_HEADER_BYTE_LOW
+	decode.updateCurrentByte(JETI::consts::head_l_without_scope);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_HEADER_BYTE_LOW, decode.current_state);
 
+        //Check whether we reach GOT_LEN
 	decode.updateCurrentByte(0x28);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_LEN, decode.current_state);
 
+        //Check whether we reach GOT_PACKET_ID
 	decode.updateCurrentByte(0x06);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_PACKET_ID, decode.current_state);
 
+        //Check whether we reach GOT_DATA_TYPES
 	decode.updateCurrentByte(0x31);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_TYPES, decode.current_state);
 
-
+        //Check whether a too large data length will pass
 	decode.updateCurrentByte(0x31);
 	EXPECT_FALSE(decode.checkValidDataLength());
+
+	//Check whether a too short data lenth will pass
 	decode.updateCurrentByte(0x08);
 	EXPECT_FALSE(decode.checkValidDataLength());
+
+	//Check whether we reach GOT_HEADER_BYTE_LOW
         decode.updateCurrentByte(0x20);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_LEN, decode.current_state);
 
-
+        //Check whether we reach GOT_DATA_CHANNEL_LOW
 	decode.updateCurrentByte(0x82);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_LOW, decode.current_state);
 
+        //Check whether we reach GOT_DATA_CHANNEL_HIGH
 	decode.updateCurrentByte(0x1F);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH, decode.current_state);
+
 
 	for(int i = 0; i < 15; i++){
 	decode.updateCurrentByte(0x82);
@@ -486,6 +227,7 @@ TEST_F(JETIChannelData, jetiClassDecode){
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_DATA_CHANNEL_HIGH, decode.current_state);
 	}
 
+        //Check whether we reach GOT_CRC16_BYTE_LOW
 	decode.updateCurrentByte(0x4F);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW, decode.current_state);
@@ -493,14 +235,57 @@ TEST_F(JETIChannelData, jetiClassDecode){
 
 TEST_F(JETIChannelData, jetiDecodeDefault){
 	JETI::DecodeVariable decode;
-	decode.updateCurrentByte(JETI::consts::head_h);
+	decode.updateCurrentByte(JETI::consts::head_h_channel_data);
 	decode.decodePackage();
-	decode.updateCurrentByte(JETI::consts::head_l);
+	decode.updateCurrentByte(JETI::consts::head_l_without_scope);
 	decode.decodePackage();
 	decode.updateCurrentByte(0x02);
 	decode.decodePackage();
 	EXPECT_EQ(JETI::DECODE_STATE::UNSYNCED, decode.current_state);
 }
 
+TEST_F(JETIChannelData, jetiDecodeRequestMenu){
+	JETI::DecodeVariable decode;
+	decode.updateCurrentByte(JETI::consts::head_h_request);
+	decode.decodePackage();
+	decode.updateCurrentByte(JETI::consts::head_l_with_scope);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x09);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x88);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x3B);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x01);
+	decode.decodePackage();
+	decode.updateCurrentByte(0xF0);
+	decode.decodePackage();
+	decode.updateCurrentByte(0xA3);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x24);
+	decode.decodePackage();
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH, decode.current_state);
+}
 
+TEST_F(JETIChannelData, jetiDecodeRequestTelemetry){
+	JETI::DecodeVariable decode;
+	decode.updateCurrentByte(JETI::consts::head_h_request);
+	decode.decodePackage();
+	decode.updateCurrentByte(JETI::consts::head_l_with_scope);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x08);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x06);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x3A);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x00);
+	decode.decodePackage();
+	decode.updateCurrentByte(0x98);
+	decode.decodePackage();
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW, decode.current_state);
+	// decode.updateCurrentByte(0x81);
+	// decode.decodePackage();
+	// EXPECT_EQ(JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH, decode.current_state);
+}
 

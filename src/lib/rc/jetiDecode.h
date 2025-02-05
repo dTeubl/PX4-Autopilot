@@ -38,9 +38,11 @@
 namespace JETI {
 
 namespace consts {
-constexpr std::uint8_t head_h{0x3EU};
-constexpr std::uint8_t head_l{0x03U};
-}; // namespace consts
+constexpr std::uint8_t head_h_channel_data{0x3EU};
+constexpr std::uint8_t head_h_request{0x3DU};
+constexpr std::uint8_t head_l_with_scope{0x01};
+constexpr std::uint8_t head_l_without_scope{0x03U};
+} // namespace consts
 
 enum DECODE_STATE {
 	UNSYNCED = 0,
@@ -55,6 +57,43 @@ enum DECODE_STATE {
 	GOT_CRC,
 	GOT_CRC16_BYTE_HIGH,
 	GOT_CRC16_BYTE_LOW,
+};
+
+class DecodeVariable{
+public:
+
+	JETI::DECODE_STATE current_state;
+	uint8_t current_byte;
+	uint8_t data_package[40];
+	int data_channel_count;
+
+	DecodeVariable();
+
+	void decodePackage();
+
+	void updateCurrentByte(uint8_t new_byte);
+
+	void updateCurrentState(JETI::DECODE_STATE new_state);
+
+	bool checkValidHeaderHigh();
+
+	bool checkValidHeaderLow();
+
+	bool checkValidLength();
+
+	bool checkValidDataLength();
+
+	void returnToUnsyncState();
+
+	bool checkLastDataChannel();
+
+	void updateDataChannel();
+
+	void updateDataPackage(int entry_position, uint8_t entry_val);
+
+	bool outOfBounds();
+
+	bool dataLenZero();
 };
 
 }
