@@ -152,7 +152,7 @@ bool JETI::DecodeVariable::checkValidHeaderLow(){
 }
 
 bool JETI::DecodeVariable::checkValidLength(){
-	return current_byte > 7 && current_byte <= 40; //smallest package contains at least ten bytes and is an even number
+	return current_byte > 7 && current_byte <= 40;
 }
 
 bool JETI::DecodeVariable::checkValidDataLength(){

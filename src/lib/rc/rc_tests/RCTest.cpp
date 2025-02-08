@@ -15,8 +15,8 @@
 #include <lib/rc/sumd.h>
 #include <lib/rc/crsf.h>
 #include <lib/rc/ghst.hpp>
-#include <lib/rc/jeti.h>
-#include <lib/rc/jetiDecode.h>
+#include <examples/jeti_extbus/extbus.h>
+#include <examples/jeti_extbus/exbus_decode.h>
 
 #if defined(CONFIG_ARCH_BOARD_PX4_SITL)
 #define TEST_DATA_PATH "./test_data/"
