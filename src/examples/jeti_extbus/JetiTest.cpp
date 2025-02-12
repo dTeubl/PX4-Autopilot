@@ -70,13 +70,13 @@ class JETIChannelData : public testing::Test {
 	JETIChannelData() {}
 
 	static const size_t data_len{40u};
-	const uint8_t raw_data[data_len] = {
+	uint8_t raw_data[data_len] = {
 	    0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
 	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
 	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
 	    0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x4F, 0xE2,
 	};
-	const uint8_t *data_pointer = raw_data;
+	uint8_t *data_pointer = raw_data;
 };
 
 /** TODO
@@ -283,9 +283,8 @@ TEST_F(JETIChannelData, jetiDecodeRequestTelemetry){
 	decode.decodePackage();
 	decode.updateCurrentByte(0x98);
 	decode.decodePackage();
-	EXPECT_EQ(JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW, decode.current_state);
-	// decode.updateCurrentByte(0x81);
-	// decode.decodePackage();
-	// EXPECT_EQ(JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH, decode.current_state);
+	decode.updateCurrentByte(0x81);
+	decode.decodePackage();
+	EXPECT_EQ(JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH, decode.current_state);
 }
 

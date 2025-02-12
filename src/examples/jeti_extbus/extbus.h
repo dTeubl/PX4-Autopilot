@@ -69,21 +69,21 @@ bool operator==(CRC const &lhs, CRC const &rhs);
 
 bool IsChannels(const JETI::Header head);
 
-auto GetHeader(const uint8_t data[], size_t len) -> JETI::Header;
+auto GetHeader(uint8_t data[], size_t len) -> JETI::Header;
 
-bool CheckChannelOverreach(int askedChannels, const uint8_t data[],
+bool CheckChannelOverreach(int askedChannels, uint8_t data[],
 			   const size_t len);
 
-auto GetChannel(const uint8_t data[], const size_t len, const uint8_t idx)
+auto GetChannel(uint8_t data[], const size_t len, const uint8_t idx)
     -> float;
 
-uint16_t GetCRC(const uint8_t data[], const size_t len);
+uint16_t GetCRC(uint8_t data[], const size_t len);
 
-auto ExtractCrcValues(const uint8_t data[], const size_t len) -> JETI::CRC;
+auto ExtractCrcValues(uint8_t data[], const size_t len) -> JETI::CRC;
 
-uint16_t Get_crc16z(const uint8_t *p, uint16_t len);
+uint16_t Get_crc16z(uint8_t *p, uint16_t len);
 
 uint16_t crc16_update(uint16_t crc, uint8_t data);
 
-bool ValidateMsg(const uint8_t *p, const uint8_t data[], const size_t len);
+bool ValidateMsg(uint8_t *p, uint8_t data[], const size_t len);
 } // namespace JETI
