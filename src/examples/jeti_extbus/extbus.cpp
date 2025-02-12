@@ -106,7 +106,7 @@ bool JETI::IsChannels(const JETI::Header head) {
         return (head.Data_ID == 0x31) ? (true) : (false);
 }
 
-auto JETI::GetHeader(uint8_t data[], size_t len) -> JETI::Header {
+auto JETI::GetHeader(uint8_t data[]) -> JETI::Header {
         // Checksum check
         auto head = JETI::Header{};
 
@@ -119,8 +119,8 @@ auto JETI::GetHeader(uint8_t data[], size_t len) -> JETI::Header {
         return head;
 }
 
-bool JETI::CheckChannelOverreach(int askedChannels, uint8_t data[], const size_t len){
-        const JETI::Header header = GetHeader(data, len);
+bool JETI::CheckChannelOverreach(int askedChannels, uint8_t data[]){
+        const JETI::Header header = GetHeader(data);
         if(askedChannels > header.Channels){
                 return true;
         }

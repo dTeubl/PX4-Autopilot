@@ -576,10 +576,10 @@ bool RCTest::jetiTestParseHeader(){
             .Channels = 0x10,
         };
 
-        const JETI::Header testHeader = JETI::GetHeader(raw_data, data_len);
+        const JETI::Header testHeader = JETI::GetHeader(raw_data);
 
 
-        ut_test(JETI::GetHeader(raw_data, data_len) == header);
+        ut_test(JETI::GetHeader(raw_data) == header);
         ut_test(testHeader == header);
         ut_test(testHeader.Channels == 0x10);
         return true;
@@ -587,7 +587,7 @@ bool RCTest::jetiTestParseHeader(){
 }
 
 bool RCTest::jetiTestRecognizeHeader(){
-        const auto head = JETI::GetHeader(raw_data, data_len);
+        const auto head = JETI::GetHeader(raw_data);
         ut_assert_true(JETI::IsChannels(head));
         return true;
 }
@@ -642,9 +642,9 @@ bool RCTest::jetiTestValidateChecksum(){
 }
 
 bool RCTest::jetiTestCheckChannelOverreach(){
-        ut_assert_false(JETI::CheckChannelOverreach(5, raw_data, data_len));
-        ut_assert_false(JETI::CheckChannelOverreach(16, raw_data, data_len));
-        ut_assert_true(JETI::CheckChannelOverreach(28, raw_data, data_len));
+        ut_assert_false(JETI::CheckChannelOverreach(5, raw_data));
+        ut_assert_false(JETI::CheckChannelOverreach(16, raw_data));
+        ut_assert_true(JETI::CheckChannelOverreach(28, raw_data));
         return true;
 }
 

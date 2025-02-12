@@ -69,10 +69,9 @@ bool operator==(CRC const &lhs, CRC const &rhs);
 
 bool IsChannels(const JETI::Header head);
 
-auto GetHeader(uint8_t data[], size_t len) -> JETI::Header;
+auto GetHeader(uint8_t data[]) -> JETI::Header;
 
-bool CheckChannelOverreach(int askedChannels, uint8_t data[],
-			   const size_t len);
+bool CheckChannelOverreach(int askedChannels, uint8_t data[]);
 
 auto GetChannel(uint8_t data[], const size_t len, const uint8_t idx)
     -> float;

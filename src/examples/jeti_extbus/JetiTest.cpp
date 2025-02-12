@@ -101,15 +101,15 @@ TEST_F(JETIChannelData, ParseHeader) {
 	    .Channels = 0x10,
 	};
 
-	const JETI::Header testHeader = JETI::GetHeader(raw_data, data_len);
+	const JETI::Header testHeader = JETI::GetHeader(raw_data);
 
-	EXPECT_EQ(header, JETI::GetHeader(raw_data, data_len));
+	EXPECT_EQ(header, JETI::GetHeader(raw_data));
 	EXPECT_EQ(header, testHeader);
 	EXPECT_EQ(0x10, testHeader.Channels);
 }
 
 TEST_F(JETIChannelData, RecognizeHeader) {
-	const auto head = JETI::GetHeader(raw_data, data_len);
+	const auto head = JETI::GetHeader(raw_data);
 
 	EXPECT_TRUE(JETI::IsChannels(head));
 }
@@ -157,9 +157,9 @@ TEST_F(JETIChannelData, ValidateChecksum) {
 
 TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
 
-	EXPECT_FALSE(JETI::CheckChannelOverreach(5, raw_data, data_len));
-	EXPECT_FALSE(JETI::CheckChannelOverreach(16, raw_data, data_len));
-	EXPECT_TRUE(JETI::CheckChannelOverreach(28, raw_data, data_len));
+	EXPECT_FALSE(JETI::CheckChannelOverreach(5, raw_data));
+	EXPECT_FALSE(JETI::CheckChannelOverreach(16, raw_data));
+	EXPECT_TRUE(JETI::CheckChannelOverreach(28, raw_data));
 }
 
 TEST_F(JETIChannelData, jetiClassDecode){
