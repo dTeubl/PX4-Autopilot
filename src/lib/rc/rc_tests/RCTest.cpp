@@ -617,7 +617,8 @@ bool RCTest::jetiTestExtractCrcValues(){
                 .crc0 = 0x4F,
                 .crc1 = 0xE2,
         };
-        ut_test(JETI::ExtractCrcValues(raw_data, data_len) == crc);
+	JETI::Header testHeader = JETI::GetHeader(raw_data);
+        ut_test(JETI::ExtractCrcValues(raw_data, testHeader) == crc);
         return true;
 }
 
@@ -633,13 +634,14 @@ bool RCTest::jetiTestGetCRC16Update(){
 }
 
 bool RCTest::jetiTestGetCRCwithChecksum(){
-        ut_test(JETI::Get_crc16z(data_pointer, data_len) == 0xE24F);
+	JETI::Header testHeader = JETI::GetHeader(raw_data);
+        ut_test(JETI::Get_crc16z(data_pointer, testHeader) == 0xE24F);
         return true;
 }
 
 bool RCTest::jetiTestValidateChecksum(){
 	JETI::Header testHeader = JETI::GetHeader(raw_data);
-        ut_assert_true(JETI::ValidateMsg(data_pointer, raw_data, data_len, testHeader));
+        ut_assert_true(JETI::ValidateMsg(data_pointer, raw_data, testHeader));
         return true;
 }
 

@@ -145,21 +145,21 @@ auto JETI::GetChannel(uint8_t data[], const size_t len,
 
 // Obtains CRC using the data of the data package
 uint16_t JETI::GetCRC(uint8_t data[], JETI::Header header) {
-        JETI::CRC crcExtracted = JETI::ExtractCrcValues(data, header.len);
+        JETI::CRC crcExtracted = JETI::ExtractCrcValues(data, header);
         return (crcExtracted.crc1*0x100)^crcExtracted.crc0;
 }
 
-auto JETI::ExtractCrcValues(uint8_t data[], const size_t len) -> JETI::CRC {
+auto JETI::ExtractCrcValues(uint8_t data[], JETI::Header header) -> JETI::CRC {
         auto crc = JETI::CRC{};
-        crc.crc0 = data[len-2];
-        crc.crc1 = data[len-1];
+        crc.crc0 = data[header.len-2];
+        crc.crc1 = data[header.len-1];
         return crc;
 }
 
 // Obtains CRC doing iterative calculations
-uint16_t JETI::Get_crc16z(uint8_t *p, uint16_t len) {                //change name of either GetCRC or Get_crc16z
+uint16_t JETI::Get_crc16z(uint8_t *p, JETI::Header header) {                //change name of either GetCRC or Get_crc16z
         uint16_t crc16_data=0;
-        while(len-- > 2) {crc16_data=crc16_update(crc16_data,p[0]); p++;}
+        while(header.len-- > 2) {crc16_data=crc16_update(crc16_data,p[0]); p++;}
         return(crc16_data);
 }
 
@@ -171,8 +171,8 @@ uint16_t JETI::crc16_update(uint16_t crc, uint8_t data) {
         return ret_val;
 }
 
-bool JETI::ValidateMsg(uint8_t *p, uint8_t data[], const size_t len, JETI::Header header) {
-        if(Get_crc16z(p, len) == GetCRC(data, header)){
+bool JETI::ValidateMsg(uint8_t *p, uint8_t data[], JETI::Header header) {
+        if(Get_crc16z(p, header) == GetCRC(data, header)){
                 return true;
         }
         return false;

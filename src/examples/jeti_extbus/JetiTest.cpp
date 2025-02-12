@@ -131,8 +131,9 @@ TEST_F(JETIChannelData, ExtractCrcValues) {
 	    .crc0 = 0x4F,
 	    .crc1 = 0xE2,
 	};
+	JETI::Header testHeader = JETI::GetHeader(raw_data);
 
-	EXPECT_EQ(crc, JETI::ExtractCrcValues(raw_data, data_len));
+	EXPECT_EQ(crc, JETI::ExtractCrcValues(raw_data, testHeader));
 }
 
 TEST_F(JETIChannelData, GetCRC) {
@@ -148,13 +149,14 @@ TEST_F(JETIChannelData, GetCRC16Update) {
 
 TEST_F(JETIChannelData, GetCRCwithChecksum) {
 
-	EXPECT_EQ(0xE24F, JETI::Get_crc16z(data_pointer, data_len));
+	JETI::Header testHeader = JETI::GetHeader(raw_data);
+	EXPECT_EQ(0xE24F, JETI::Get_crc16z(data_pointer, testHeader));
 }
 
 TEST_F(JETIChannelData, ValidateChecksum) {
 
 	JETI::Header testHeader = JETI::GetHeader(raw_data);
-	EXPECT_TRUE(JETI::ValidateMsg(data_pointer, raw_data, data_len, testHeader));
+	EXPECT_TRUE(JETI::ValidateMsg(data_pointer, raw_data, testHeader));
 }
 
 TEST_F(JETIChannelData, CheckIfChannelIsOverreached) {
