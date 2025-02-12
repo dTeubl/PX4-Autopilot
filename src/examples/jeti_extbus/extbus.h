@@ -76,7 +76,7 @@ bool CheckChannelOverreach(int askedChannels, uint8_t data[]);
 auto GetChannel(uint8_t data[], const size_t len, const uint8_t idx)
     -> float;
 
-uint16_t GetCRC(uint8_t data[], const size_t len);
+uint16_t GetCRC(uint8_t data[], JETI::Header header);
 
 auto ExtractCrcValues(uint8_t data[], const size_t len) -> JETI::CRC;
 
@@ -84,5 +84,5 @@ uint16_t Get_crc16z(uint8_t *p, uint16_t len);
 
 uint16_t crc16_update(uint16_t crc, uint8_t data);
 
-bool ValidateMsg(uint8_t *p, uint8_t data[], const size_t len);
+bool ValidateMsg(uint8_t *p, uint8_t data[], const size_t len, JETI::Header header);
 } // namespace JETI
