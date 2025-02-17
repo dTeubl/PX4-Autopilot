@@ -55,6 +55,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/jeti_channel_data.h>
 
 #include "streams/ACTUATOR_OUTPUT_STATUS.hpp"
 #include "streams/ALTITUDE.hpp"
@@ -157,6 +158,7 @@
 #endif // !CONSTRAINED_FLASH
 
 #include "streams/JETI.hpp"
+#include "streams/JETI_CHANNEL_DATA.hpp"
 
 // ensure PX4 rotation enum and MAV_SENSOR_ROTATION align
 static_assert(MAV_SENSOR_ROTATION_NONE ==
@@ -580,6 +582,9 @@ static const StreamListItem streams_list[] = {
 #endif // CURRENT_MODE_HPP
 #if defined(JETI_HPP)
     create_stream_list_item<MavlinkStreamJETI>(),
+#endif
+#if defined(JETI_CHANNEL_DATA_HPP)
+    create_stream_list_item<MavlinkStreamJetiChannelData>(),
 #endif
 };
 

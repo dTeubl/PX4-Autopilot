@@ -80,6 +80,7 @@
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/input_rc.h>
 #include <uORB/topics/irlock_report.h>
+#include <uORB/topics/jeti_channel_data.h>
 #include <uORB/topics/landing_target_pose.h>
 #include <uORB/topics/log_message.h>
 #include <uORB/topics/manual_control_setpoint.h>
@@ -178,6 +179,7 @@ private:
 	void handle_message_hil_optical_flow(mavlink_message_t *msg);
 	void handle_message_hil_sensor(mavlink_message_t *msg);
 	void handle_message_hil_state_quaternion(mavlink_message_t *msg);
+	void handle_message_jeti_channel_data(mavlink_message_t *msg);
 	void handle_message_landing_target(mavlink_message_t *msg);
 	void handle_message_logging_ack(mavlink_message_t *msg);
 	void handle_message_manual_control(mavlink_message_t *msg);

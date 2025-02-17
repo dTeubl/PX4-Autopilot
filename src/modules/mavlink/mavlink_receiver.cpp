@@ -292,6 +292,10 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 		handle_message_open_drone_id_system(msg);
 		break;
 
+	case MAVLINK_MSG_ID_JETI_CHANNEL_DATA:
+		handle_message_jeti_channel_data(msg);
+		break;
+
 #if !defined(CONSTRAINED_FLASH)
 
 	case MAVLINK_MSG_ID_NAMED_VALUE_FLOAT:
