@@ -76,6 +76,8 @@ bool CheckChannelOverreach(int askedChannels, uint8_t data[]);
 auto GetChannel(uint8_t data[], const size_t len, const uint8_t idx)
     -> float;
 
+auto GetChannelData(uint8_t data[], int idx) -> float;
+
 uint16_t GetCRC(uint8_t data[], JETI::Header header);
 
 auto ExtractCrcValues(uint8_t data[], JETI::Header header) -> JETI::CRC;

@@ -126,6 +126,16 @@ TEST_F(JETIChannelData, CalculateSecondChannelValue) {
 	EXPECT_LE(1.00825f - channel, 0.000000001f);
 }
 
+TEST_F(JETIChannelData, GetChannelData1) {
+	auto channel = JETI::GetChannelData(raw_data, 0);
+	EXPECT_LE(1.00825f - channel, 0.000000001f);
+}
+
+TEST_F(JETIChannelData, GetChannelData2) {
+	auto channel = JETI::GetChannelData(raw_data, 1);
+	EXPECT_LE(1.00825f - channel, 0.000000001f);
+}
+
 TEST_F(JETIChannelData, ExtractCrcValues) {
 	const JETI::CRC crc = {
 	    .crc0 = 0x4F,

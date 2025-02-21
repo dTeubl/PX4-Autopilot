@@ -143,6 +143,10 @@ auto JETI::GetChannel(uint8_t data[], const size_t len,
         // return static_cast<float>(raw_channel.data) / 8'000;
 }
 
+auto JETI::GetChannelData(uint8_t data[], int idx) -> float {
+	return static_cast<float>((data[7+2*idx]*0x100)^data[6+2*idx]) / 8'000;
+}
+
 // Obtains CRC using the data of the data package
 uint16_t JETI::GetCRC(uint8_t data[], JETI::Header header) {
         JETI::CRC crcExtracted = JETI::ExtractCrcValues(data, header);

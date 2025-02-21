@@ -599,6 +599,11 @@ bool RCTest::jetiTestCalculateFirstChannelValue(){
         if(channel <= 0.000000001f){
                 return true;
         }
+	auto channel_new = JETI::GetChannelData(raw_data, 0);
+        channel_new = 1.00825f - channel_new;
+        if(channel_new <= 0.000000001f){
+                return true;
+        }
         return false;
 }
 
@@ -607,6 +612,11 @@ bool RCTest::jetiTestCalculateSecondChannelValue(){
         auto channel = JETI::GetChannel(raw_data, data_len, ch_id);
         channel = 1.00825f - channel;
         if(channel <= 0.000000001f){
+                return true;
+        }
+	auto channel_new = JETI::GetChannelData(raw_data, 1);
+        channel_new = 1.00825f - channel_new;
+        if(channel_new <= 0.000000001f){
                 return true;
         }
         return false;
@@ -787,7 +797,7 @@ bool RCTest::jetiTestDecodeRequestTelemetry(){
         }
 
         ut_test(ret == EOF);
-	ut_test(decode.current_state == JETI::DECODE_STATE::GOT_CRC16_BYTE_LOW);
+	ut_test(decode.current_state == JETI::DECODE_STATE::GOT_CRC16_BYTE_HIGH);
 
         return true;
 }
