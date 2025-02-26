@@ -57,7 +57,17 @@ extern "C" __EXPORT int jeti_extbus_main(int argc, char *argv[]);
 auto jeti_extbus_main(int argc, char *argv[]) -> int {
         PX4_INFO("Hello Sky Sim!");
 
+        uint8_t raw_data[] = {
+		0x3E, 0x03, 0x28, 0x06, 0x31, 0x20, 0x82, 0x1F, 0x82, 0x1F,
+		0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+		0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F,
+		0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x82, 0x1F, 0x4F, 0xE2,
+	    };
+
         int sensor_sub_fd = orb_subscribe(ORB_ID(sensor_combined));
+
+	JETI::Header head = JETI::GetHeader(raw_data);
+	uint16_t crc = JETI::GetCRC(raw_data, head);
 
         orb_set_interval(sensor_sub_fd, 200);
 
@@ -75,18 +85,16 @@ auto jeti_extbus_main(int argc, char *argv[]) -> int {
         memset(&jeti_data, 0, sizeof(jeti_data));
         orb_advert_t jeti_pub = orb_advertise(ORB_ID(jeti), &jeti_data);
 
-        [[maybe_unused]]auto head = JETI::Header{};
-
 
 	jeti_channel_data_s jeti_raw = {};
 	jeti_raw.timestamp = hrt_absolute_time();
-	jeti_raw.head1 = 0x3E;
-	jeti_raw.head2 = 0x03;
-	jeti_raw.len = 0x28;
-	jeti_raw.packet_id = 0x06;
-	jeti_raw.data_id = 0x31;
-	jeti_raw.sub_len = 0x20;
-	jeti_raw.crc16 = 0xE24F;
+	jeti_raw.head1 = head.H0;
+	jeti_raw.head2 = head.H1;
+	jeti_raw.len = head.len;
+	jeti_raw.packet_id = head.Packet_ID;
+	jeti_raw.data_type = head.Data_ID;
+	jeti_raw.sub_len = (head.Channels << 1);
+	jeti_raw.crc16 = crc;
 
 	[[maybe_unused]]orb_advert_t jeti_raw_pub = orb_advertise(ORB_ID(jeti_channel_data), &jeti_raw);
 
