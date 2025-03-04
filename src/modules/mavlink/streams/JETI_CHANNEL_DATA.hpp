@@ -34,52 +34,76 @@
  #ifndef JETI_CHANNEL_DATA_HPP
  #define JETI_CHANNEL_DATA_HPP
 
- #include <uORB/topics/jeti_channel_data.h>
+   #include <uORB/topics/jeti_channel_data.h>
 
- class MavlinkStreamJetiChannelData : public MavlinkStream
- {
- public:
-	 static MavlinkStream *new_instance(Mavlink *mavlink) { return new MavlinkStreamJetiChannelData(mavlink); }
+   class MavlinkStreamJetiChannelData : public MavlinkStream
+   {
+   public:
+       static MavlinkStream *new_instance(Mavlink *mavlink)
+       {
+	   return new MavlinkStreamJetiChannelData(mavlink);
+       }
+       const char *get_name() const
+       {
+	   return MavlinkStreamJetiChannelData::get_name_static();
+       }
+       static const char *get_name_static()
+       {
+	   return "JETI_CHANNEL_DATA";
+       }
+       static uint16_t get_id_static()
+       {
+	   return MAVLINK_MSG_ID_JETI_CHANNEL_DATA;
+       }
+       uint16_t get_id()
+       {
+	   return get_id_static();
+       }
+       unsigned get_size()
+       {
+	   return MAVLINK_MSG_ID_JETI_CHANNEL_DATA_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
+       }
 
-	 static constexpr const char *get_name_static() { return "JETI_CHANNEL_DATA"; }
-	 static constexpr uint16_t get_id_static() { return MAVLINK_MSG_ID_JETI_CHANNEL_DATA; }
+   private:
+       //Subscription to array of uORB battery status instances
+       uORB::SubscriptionMultiArray<jeti_channel_data_s> _jeti_channel_data_subs{ORB_ID::jeti_channel_data};
+       // SubscriptionMultiArray subscription is needed because battery has multiple instances.
+       // uORB::Subscription is used to subscribe to a single-instance topic
 
-	 const char *get_name() const override { return get_name_static(); }
-	 uint16_t get_id() override { return get_id_static(); }
+       /* do not allow top copying this class */
+       MavlinkStreamJetiChannelData(MavlinkStreamJetiChannelData &);
+       MavlinkStreamJetiChannelData& operator = (const MavlinkStreamJetiChannelData &);
 
-	 unsigned get_size() override
-	 {
-		 return _jeti_channel_data_sub.advertised() ? MAVLINK_MSG_ID_JETI_CHANNEL_DATA_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES : 0;
-	 }
+   protected:
+       explicit MavlinkStreamJetiChannelData(Mavlink *mavlink) : MavlinkStream(mavlink)
+       {}
 
- private:
+	   bool send() override
+	   {
+		   bool updated = false;
 
-         uORB::Subscription _jeti_channel_data_sub{ORB_ID(jeti_channel_data)};
+		   // Loop through _battery_status_subs (subscription to array of BatteryStatus instances)
+		   for (auto &jeti_channel_data_sub : _jeti_channel_data_subs) {
+	       // battery_status_s is a struct that can hold the battery object topic
+			   jeti_channel_data_s jeti_channel_data;
 
-	 MavlinkStreamJetiChannelData(MavlinkStreamJetiChannelData &);
-         MavlinkStreamJetiChannelData& operator = (const MavlinkStreamJetiChannelData &);
+			   // Update battery_status and publish only if the status has changed
+			   if (jeti_channel_data_sub.update(&jeti_channel_data)) {
+		   // mavlink_battery_status_demo_t is the MAVLink message object
+				   mavlink_jeti_channel_data_t jeti_channel_data_msg{};
+
+				   jeti_channel_data_msg.timestamp = jeti_channel_data.timestamp;
+				   jeti_channel_data_msg.crc16 = jeti_channel_data.crc16;
 
 
- protected:
-	 explicit MavlinkStreamJetiChannelData(Mavlink *mavlink) : MavlinkStream(mavlink) {}
+		   //Send the message
+				   mavlink_msg_jeti_channel_data_send_struct(_mavlink->get_channel(), &jeti_channel_data_msg);
+				   updated = true;
+			   }
+		   }
 
-	 bool send() override
-	 {
-		 struct jeti_channel_data_s _jeti_channel_data;
+		   return updated;
+	   }
 
-		 if (_sub.update(&_jeti_channel_data)) {
-
-			 mavlink_jeti_channel_data_t _msg_jeti_channel_data;
-
-			 _msg_jeti_channel_data.timestamp = _jeti_channel_data.timestamp;
-			 //add other messages
-
-			 mavlink_msg_jeti_channel_data_send_struct(_mavlink->get_channel(), &_msg_jeti_channel_data);
-			 return true;
-		 }
-
-		 return false;
-	 }
- };
-
- #endif // LANDING_TARGET_HPP
+   };
+   #endif // JETI_CHANNEL_DATA_HPP

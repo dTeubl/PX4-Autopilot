@@ -159,6 +159,7 @@
 
 #include "streams/JETI.hpp"
 #include "streams/JETI_CHANNEL_DATA.hpp"
+#include "streams/BATTERY_STATUS_DEMO22.hpp"
 
 // ensure PX4 rotation enum and MAV_SENSOR_ROTATION align
 static_assert(MAV_SENSOR_ROTATION_NONE ==
@@ -585,6 +586,9 @@ static const StreamListItem streams_list[] = {
 #endif
 #if defined(JETI_CHANNEL_DATA_HPP)
     create_stream_list_item<MavlinkStreamJetiChannelData>(),
+#endif
+#if defined(BATTERY_STATUS_DEMO22_HPP)
+    create_stream_list_item<MavlinkStreamBatteryStatusDemo22>(),
 #endif
 };
 
